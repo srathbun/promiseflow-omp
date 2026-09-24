@@ -1,0 +1,24 @@
+{
+  "name": "promiseflow-omp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "omp extension bundling a TypeScript port of promiseflow (promise-based single-flight coordination) with Redis-backed distributed coordination.",
+  "license": "MIT",
+  "omp": {
+    "extensions": ["./extensions/pf-coordinator/index.ts"]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@oh-my-pi/pi-coding-agent": "latest",
+    "@types/bun": "latest",
+    "ioredis-mock": "^8.9.0",
+    "typescript": "^5.6.0"
+  }
+}
