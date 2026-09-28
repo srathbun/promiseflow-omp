@@ -1,6 +1,6 @@
 # Aristotle × PromiseFlow — Project Status
 
-> Where we are, what the project is, and what's next. Working snapshot; last updated to the close of the 18.3.2 live-dedup run (verification-bundle §10).
+> Where we are, what the project is, and what's next. Working snapshot; last updated to the close of the paper-draft experiments (grammar-authoring, TTL retention, schema-free collision) and the draft restructure after external review.
 
 ## What this project is
 
@@ -59,6 +59,13 @@ Pre-existing (inherited): the `reason` tool and Marpa worker in Aristotle; the P
 - Two identical subagents extracted findings from a real GitHub issue. **Loose schema → diverged** on two boundary judgments; the v1 `finding+` grammar produced an exponential **2^(n−1)** vacuous forest (16 384 / 32 768 interpretations).
 - Fix: **v2 `TYPED_GRAMMAR`** (`temporal | marker`, structured ambiguity) + a **tight deterministic schema** (atomize dotted identifiers at `.`, explicit include/exclude). Result: agents **converged byte-identically**; forest bounded at **2^5 = 32** (five temporal tokens); dedup fired (2 requests → 1 execution).
 
+### Paper draft + evidence experiments (`docs/paper-draft.md` + `experiments/`)
+- Paper, *The Work Already Done: Parsing and Promises for Collaborative Agents*, drafted in the author's voice against the original *Parallel Processing with Promises* paper. Restructured after an external (Claude) review: Purpose/Problem block up front, related work ("Where this sits") moved up, new "When does this fire?" preconditions section, a System section with figure, and the evidence split into strength tiers (proven / solid / weak / anecdotal) with per-result caveats.
+- **Grammar-authoring run** (model writes `finding+` then refines to `temporal|generic`): 19 SQLAlchemy tokens → naive grammar reported **262,144** readings; the model diagnosed "pure regrouping, no information" and rewrote to the typed grammar → exactly **32** (2^5). This is the measured trace behind the paper's "the model writes the grammar" claim (previously near-neighbor analogy).
+- **TTL retention demo** (`ttl-retention-demo.ts`): Ephemeral → 2 sequential callers / 2 executions; `Ttl(60)` → 2 callers / 1 execution (the later caller skips). Backs the "retention relaxes the overlap precondition" clause.
+- **Schema-bound collision** (`reference-collision.ts`): 4 identical-prompt, shared-schema extractors → 25 requests / 13 distinct / 12 absorbed (0.48 duplicate fraction).
+- **Schema-free collision** (`schema-free-collision.ts`): 4 extractors, *no* shared schema → mechanical collision rate 0.08 (24 distinct strings from 26 items) vs conceptual 0.67 (12 works, same 4 at the core). The 0.08→0.67 gap is the schema's measured contribution. (One extractor derailed and returned no list — a real unprompted-extraction failure mode.)
+
 ## Key findings (the durable takeaways)
 
 1. **Dedup identity is exact.** The segment key hashes `(grammar, prefix)` byte-for-byte. It dedupes *in-flight* computation, not "similar" work (no fuzzy/semantic matching, by design).
@@ -82,20 +89,29 @@ Pre-existing (inherited): the `reason` tool and Marpa worker in Aristotle; the P
 
 - **Live OMP-runtime run with real usage** — `parse_segment` + `reason_segment` both exercised in a live `omp/18.3.2` session with the extension loaded; two concurrent subagents at the same `(grammar, fragments)` state produced one execution, one `skippedLlmCalls`, and a real `assistantMessage.usage` delta (521 in / 794 out → 0/0 for the follower). Full ledger in verification-bundle §10. (`reason_segment` required `ctx.runEphemeralTurn`, absent before 18.3.0 — that was the prior "no LLM primitive" dead-end.)
 
+**Now done (this session — paper draft + evidence experiments):**
+
+- **Grammar-authoring run** — a subagent wrote the naive `finding+`/`item+` grammar, saw the 262,144-reading forest, diagnosed it as regrouping noise, and rewrote to `temporal | generic`, landing on exactly 32 (2^5). This converts the paper's "the model writes the grammar" claim from analogy to a measured trace on the create/extend surface (§ "The loop the model writes").
+- **Schema-free collision run** — 4 extractors, no shared schema: mechanical collision 0.08 vs conceptual 0.67 (same 4 works at the core). The gap is the schema's measured contribution; one agent derailed and returned no list. Reported in § "Collision rate", now a two-sided anecdote rather than schema-bound-only.
+- **TTL retention demo** — Ephemeral 2→2 executions; `Ttl(60)` 2→1 (sequential second caller skips). Backs the "When does this fire?" retention clause.
+- **Paper draft restructured** after external review — Purpose block, related work moved up, preconditions section, system figure, tiered evidence.
+
 **Still open (in paper-priority order):**
 
-- **Collision rate at N>2** — the *mechanism* is proven (same key → one execution, N≤3 exercised); the *rate* is unmeasured. A paper claiming "multiple subagents coincidentally doing the same work run it once" needs an experiment over a real multi-agent workload counting how many distinct segment keys repeat, not just proof that a forced collision dedups.
-- **Cross-agent / in-loop surface** — `steerPeer`/`spawnTask` or an `after_agent_step` hook. Today dedup only fires when two agents *happen* to reach the same state concurrently (model-mediated); actually skipping the in-loop provider call (rather than a coordinated side turn) still needs the core-hook change. This is the paper's central "future work."
+- **Collision rate at scale** — all collision work is four agents, one corpus, schema imposed or withheld deliberately. A real rate across a live multi-agent workload with independent tasks remains unmeasured; the paper says so (§ "What we have not done").
+- **Cross-agent / in-loop surface** — `steerPeer`/`spawnTask` or an `after_agent_step` hook. Dedup still fires only on concurrent same-state arrivals; skipping the in-loop provider call needs the core-hook change (paper's "loop surface" limit).
 - **Cross-process dedup** — in-flight dedup is single-in-process only; `RedisCoordinator` (already ported) is never exercised across processes/sessions.
-- **Generalization breadth** — 2 issues, 1 extraction shape (symbol lists), 1 grammar (`temporal | marker`). The paper claims the mechanism + convergence phenomenon; a general "extraction" claim needs more shapes.
-- **`execute_once`** — stateless semantic-action execution for grammars that *compute* (`vars`/`output`) rather than recognize. Low paper relevance (the thesis is recognition + ambiguity).
-- **Lexeme-identity rendering** — worker prints matched text, so `temporal`-vs-`marker` alternatives render identically (forest count still honest). Cosmetic.
+- **Generalization breadth** — 1 extraction shape (symbol lists), 1 grammar (`temporal | marker`), 2 issues. The paper claims mechanism + convergence; a general claim needs more shapes (§ "breadth of shape").
+- **`execute_once`** — stateless semantic-action execution for grammars that *compute* (`vars`/`output`) rather than recognize. Low paper relevance; cut from paper scope per review.
+- **Lexeme-identity rendering** — worker prints matched text, so `temporal`-vs-`marker` alternatives render identically (forest count still honest). Cosmetic; cut from paper scope per review.
 
 ## File map
 
 ```
 F:\promiseflow-omp\
   docs\aristotle-omp-loop-hook.md        M16 audit (OMP lifecycle)
+  docs\paper-draft.md                    paper draft (thesis/body/conclusion/references)
+  docs\verification-bundle.md            evidence pack (M15 → step 3 → live LLM step)
   extensions\pf-coordinator\
     index.ts                             pre-existing: wraps read-only tools with Coordinator
     promiseflow\                         pre-existing TS port (Coordinator, RedisCoordinator, keying, …)
@@ -108,8 +124,12 @@ F:\promiseflow-omp\
       resolve-coordinator.ts              Path(i) coordinatedResolve
       segment-resolve.test.ts             Path(i) tests
       parse-segment.ts                    step2 process-wide coordinator + DEFAULT/TYPED grammars
-      parse-segment-extension.ts          step2 parse_segment tool + prompt template
+      parse-segment-extension.ts          step2 parse_segment/reason_segment tools
       parse-segment.test.ts               step2 dedup tests
+      sqlalchemy-scenarios.ts             step3 issue #13497/#13570 harness (runScenario)
+      reference-collision.ts              schema-bound collision measurement (0.48)
+      schema-free-collision.ts            no-schema collision measurement (0.08 vs 0.67)
+      ttl-retention-demo.ts               TTL vs Ephemeral sequential-caller demo (2→1)
 
 F:\aristotle\
   worker\marpa-worker.pl                  includes parse_once (added M15)
