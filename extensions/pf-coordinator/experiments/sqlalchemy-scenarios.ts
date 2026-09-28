@@ -78,7 +78,7 @@ export async function runScenario(
     p.promise.then(() => parseSegment(scenario.grammar, scenario.findings)),
   );
   const reasonTasks = Array.from({ length: concurrency }, () =>
-    p.promise.then(() => coordinatedReason(scenario.grammar, scenario.findings, () => generate(promptText))),
+    p.promise.then(() => coordinatedReason(scenario.grammar, scenario.findings, scenario.question, () => generate(promptText))),
   );
   p.resolve();
   const parses = await Promise.all(parseTasks);

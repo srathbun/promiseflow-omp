@@ -2,21 +2,33 @@
 
 ### Spencer Rathbun (with the Aristotle × PromiseFlow collaboration)
 
-> DRAFT — working document for collating the paper. Citation facts still require a live
-> search window; unresolved fields are marked `[verify]`.
+> DRAFT — working document for collating the paper.
 
 ## PROBLEM AND CONTRIBUTION
 
 Multi-agent coding and research teams waste the same reasoning on the same material — two
 agents reading one failing trace, four agents re-deriving one assumption — each paying for a
-model call that another agent has already made, at twenty thousand to one hundred and sixty
-thousand tokens per turn. This paper gives those teams a mechanism they can build and keep
-using: name a unit of reasoning *before* it runs, so concurrent agents doing the same unit
-run it once. It reports, in numbers rather than promises, when that mechanism actually fires, and it
-says straight what it does not yet do: suppress the agent's own primary model call. In
-short: the problem is repeated reasoning; the cost is repeated model calls; the remedy is a
-name for reasoning, built by a parser; and the saving, today, is on shared side-work, not on
-the agent's own call.
+model call that another agent has already made. A *full agent turn* runs on the order of
+twenty thousand to one hundred and sixty thousand tokens before any caching; the smaller
+continuation this work deduplicates runs about sixteen thousand. This paper gives those teams
+a mechanism they can build and keep
+using: name a unit of reasoning *before* it runs, so agents doing the same unit while it is
+underway run it once — a guarantee that holds while their requests overlap, or by a retention
+policy when they do not. It reports, in numbers rather than promises, when that mechanism actually fires, and it
+says straight what it does not yet do: suppress the agent's own primary model call.
+
+What this paper is about, and what it is not, is worth saying once, at the front. It is about
+*shared* work: agents whose material overlaps — the same trace, the same symbol, the same
+dependency — doing a piece of reasoning more than once. It is **not** about wholly different
+tasks. An agent mowing a lawn and another doing laundry share almost nothing, and the fact
+that they do not is trivial; nothing in this work pretends otherwise. The interesting case is
+the opposite one: people working the same codebase, or agents answering the same larger
+question from different directions, where a broad ask *implicitly contains many small shared
+pieces* — the same context built, the same file read, the same decision reached, again and
+again. Where work is genuinely shared, the mechanism pays; where it is not, there is nothing
+to pay for. In short: the problem is repeated reasoning; the cost is repeated model calls; the
+remedy is a name for reasoning, built by a parser; and the saving, today, is on shared
+side-work, not on the agent's own call.
 
 ---
 
@@ -49,11 +61,12 @@ thought has no ready-made name, so we must give it one. We show how parsing supp
 name, and why a *generalized* parser matters — because ambiguity, which an ordinary parser
 rejects as an error, is exactly the signal we need. We then walk one complete loop — the
 model writes a grammar for what it wants to find, parses, notices where the grammar leaves
-the matter undecided, holds the turn, and revises the grammar before reparsing. Say it early, because it is what makes all of this practical:
-*the model writes the grammar.* Nobody adopting this system is handed a parsing problem to
-solve first. With the pieces in hand we lay out the system itself, say when it fires and when it
-will not, and report the measured evidence in tiers — from the proven, through the solid, to
-the anecdotal — so the weight of each claim is plain. We close with the limits.
+the matter undecided, holds the turn, and revises the grammar before reparsing. The model
+writes the grammar — say that now and hold onto it, because it is what makes the whole thing
+practical. Nobody adopting this system is handed a parsing problem to solve first. With the
+pieces in hand we lay out the system itself, say when it fires and when it will not, and
+report the measured evidence in tiers — proven, solid, weak, anecdotal — so the weight of
+each claim is plain. We close with the limits.
 
 ## WHY IDENTICAL WORK MATTERS
 
@@ -84,12 +97,11 @@ answer in the next section, and then we come back to naming.
 
 ## WHERE THIS SITS
 
-Why is this not simply prefix caching? The systems that do that are real and shipping, and
-the answer marks where this paper stops and they begin. Systems such as SGLang's
-RadixAttention and MemGPT's virtual memory already make repeated *model calls*
-cheap: when two agents send the same prompt, the shared prefix — the re-sent system context,
-which is precisely the dominant cost our measurements expose — is computed once and reused.
-That work is real and shipping. What it does not remove is the *decision itself*. Two agents
+This paper is not prefix caching, and it is worth saying where the two divide. SGLang's
+RadixAttention and MemGPT's virtual memory already make repeated *model calls* cheap: when
+two agents send the same prompt, the shared prefix — the re-sent system context, which is
+precisely the dominant cost our measurements expose — is computed once and reused. That work
+is real and shipping. What it does not remove is the *decision itself*. Two agents
 whose contexts are identical still run the same continuation twice; a KV cache saves the
 prefix, not the thought.
 
@@ -98,9 +110,20 @@ the grammar-shaped finding the agent has produced — so the continuation that f
 once rather than once per agent. The two ideas compose rather than compete: prefix caching
 makes each single flight cheap, and segment deduplication removes the redundant flights.
 One is about the material a model call is made of; the other is about whether the call is
-made at all. The distinction matters because the expensive part of an agent's work is not the
-context it carries but the conclusion it draws, and until the conclusion has a name, no cache
-can prevent drawing it twice.
+made at all. The distinction matters because a substantial share of an agent's cost can come
+from the model continuations it generates — not only the context it carries back and forth —
+and until a continuation has a name, no cache can prevent paying for it twice.
+
+The closer neighbor is *semantic caching*, which asks a slightly different question: are these
+two prompts similar enough that an old answer can serve a new one? That is a probabilistic,
+approximate contract — the whole field's difficulty is deciding when "similar" is safe enough,
+and systems like vCache exist precisely to put correctness guarantees around the match. This
+paper asks a narrower, more conservative question: have two agents independently arrived at the
+*same declared work*? With respect to the declared identity it is lossless — same key means
+same work, different key means do not coalesce — and it is the identity the agents construct,
+not a similarity an embedder guesses, that decides. The two are complementary: semantic caching
+salvages near-matches, where this system asks for exact—in—declared—identity matches and never
+gambles that two different things are interchangeable.
 
 ## NAMING REASONING
 
@@ -156,9 +179,12 @@ references), rather than on the grammar tools most programmers already know.
 
 ## AMBIGUITY IS THE SIGNAL
 
-Ambiguity, then, is not noise. It is the parser telling us how much of the agent's finding
-remains undecided, and that number is load-bearing. Our measurements show it takes two very
-different shapes, and the distinction governs the entire design.
+Ambiguity, then, is not noise. For a suitably designed grammar, the parse count exposes
+unresolved distinctions in the representation — places where the grammar admits more than one
+reading of the same finding. It is not a measure of how uncertain the agent is; a grammar that
+recounts the same fact 262,144 times says nothing about the agent, only about itself. The
+number is load-bearing when the grammar is built to make it so, and our measurements show it
+takes two very different shapes, a distinction that governs the entire design.
 
 An *unstructured* grammar — for instance "a document is a sequence of findings" with no
 internal constraints — does not disambiguate anything. Every way of regrouping the same flat
@@ -172,9 +198,11 @@ distinct kinds, such as a time-type versus a generic mention — turns the same 
 bounded question. The ambiguity becomes a count of the genuinely undecided points, and it is
 small: five temporal tokens whose type could not be settled became exactly 32 readings, 2^5.
 The "temporal-type" versus "generic-mention" distinction is not an ornament; in the real bug
-that motivated this work it is exactly the distinction a maintainer needed to diagnose it. Good ambiguity is structured, bounded, and meaningful; bad ambiguity is partition
-noise. And this is the part that makes the whole thing practical: *nobody but the model writes
-either kind.*
+that motivated this work it is exactly the distinction a maintainer needed to diagnose it.
+
+Good ambiguity is structured, bounded, and meaningful; bad ambiguity is partition noise. And
+this is the part that makes the whole thing practical: *nobody but the model writes either
+kind.*
 The grammar is not something you author by hand before adopting the system; it is an output
 of the system. The forest it produces — ambiguous or clean — is feedback the model reads and
 answers with a better grammar. That loop comes next, and so does the trace of it running.
@@ -192,6 +220,16 @@ settle them, and reparse. This borrows an idea Kegler named the Ruby Slippers te
 parser can revise its own grammar in response to what it finds — applied here from the start,
 so the grammar is not rescued by a human but *grown by the model*, from first draft to decision.
 
+This sits beside the earlier claim that "agents must share a deterministic schema," and the two
+need to be read together or they look contradictory. The grammar is authored by the model, but
+authored *once, for the swarm*, and then held in common — not re-invented per agent. The
+reason is plain in the key itself: it hashes the grammar along with the fragments, so two
+agents who each write their own grammar for the same work produce two different keys and never
+deduplicate, however alike their grammars read. The model owns the *birth and refinement* of
+the grammar; the swarm owns its *sharing*. What the parser gives each agent is not a private
+language but a common one, and the parse that follows is the checkpoint where two agents'
+independent readings of the same material either meet or do not.
+
 We watched this happen end to end on the finding-shape above. Given the nineteen SQLAlchemy
 symbols and the instruction to mark the temporal kind, a model wrote a naive grammar — a
 document of findings, each an unconstrained list of items — and the parser answered with
@@ -199,7 +237,10 @@ document of findings, each an unconstrained list of items — and the parser ans
 information), and rewrote the grammar to split each item into a temporal literal or a generic
 identifier. The same nineteen tokens parsed to exactly 32 readings, 2^5 — one binary choice
 per genuinely-undecided temporal point. The refinement did not just shrink the number; it
-made the number *mean* something. The count is reproduced verbatim in the evidence.
+made the number *mean* something. That first run named the answer for the model before it
+began. Four more runs, unaided, are reported in the evidence: they all bounded the count on
+their own, though only some found this particular distinction. The counts are reproduced
+verbatim there.
 
 The loop is a work unit like any other, which means it itself has a name and can itself be
 deduplicated. Two agents arriving simultaneously at the same ambiguous state do not each run
@@ -236,25 +277,40 @@ concurrent claimant at the same key becomes a follower who awaits the one result
 coordination is the promise pattern from the earlier paper, wired to a key that names
 *reasoning* rather than a database query.
 
-The extension exposes two tools. *parse_segment* runs the Marpa parse behind the coordinator
-and returns the forest; it is pure compute, and its dedup saves cycles, not tokens. *
-reason_segment* runs the LLM continuation behind the same coordinator, keyed by parse state
-under a distinct scheme; its dedup is where the token budget is actually spent less. They are
-deliberately separate — a parse and a continuation at the same grammar and fragments are
-different work with different costs, and were they to share a key they would wrongly collide.
+The extension exposes two tools. `parse_segment` runs the Marpa parse behind the coordinator
+and returns the forest; it is pure compute, and its dedup saves cycles, not tokens.
+`reason_segment` runs the LLM continuation behind the same coordinator; its dedup is where the
+token budget is actually spent less. They are deliberately separate — a parse and a
+continuation at the same grammar and fragments are different work with different costs, and
+were they to share a key they would wrongly collide.
 
-Two design points matter because they are the ones that failed in naive form and succeeded
-in this form. The first is the *process-wide* coordinator: it must live once per
-process, shared by every sub-agent, or the guarantee evaporates the moment the work splits
-across agents. The second is *namespacing*, already stated. The third, said once and clearly:
-the coordinator's default is *in-flight only* — it deduplicates callers who
-overlap in time, and a later, sequential caller recomputes — unless a retention policy is
-chosen, a one-line change whose effect we measured and report in the evidence.
+What the key covers matters, and it is stated for the same reason. The parse key is the hash of
+grammar plus ordered fragments — nothing more, which is why byte-different but semantically
+equal findings (the loose-schema divergence) get different keys, as they should. The
+continuation key adds the *prompt*: two agents at the same findings asking different questions
+are doing different work and get different keys. A follower receives the owner's tool result
+as its own — the same text the owner produced — so its downstream behavior is equivalent only
+when the prompt was equivalent, which is exactly what the prompt being in the key guarantees.
+
+Three design points matter because each failed in naive form before settling this way. The
+first is the *process-wide* coordinator: it must live once per process, shared by every
+sub-agent, or the guarantee evaporates the moment the work splits across agents. The second
+is *namespacing*: a parse and a continuation at the same grammar and fragments are different
+work and must not share a key. The third is the coordinator's default of *in-flight only* —
+it deduplicates callers who overlap in time, and a later, sequential caller recomputes —
+unless a retention policy is chosen, a one-line change whose effect is reported in the
+evidence.
 
 ## WHEN DOES THIS FIRE?
 
 A mechanism that works when forced is only useful if we can say when it fires on its own.
-Three conditions fell out of the measurements, and they say what the forced demo predicts.
+The premise itself is the first thing to state: this fires when *work is shared*. Disparate
+tasks do not share, and nothing here claims they do — a measured near-zero overlap across six
+real, different SQLAlchemy issues is reported in the evidence as confirmation of that
+boundary, not as a finding that weakens the mechanism. The cases that matter are the ones
+where a broad ask folds many small shared pieces into one — the same codebase read and
+re-read, the same decision reached from separate directions. In those cases three conditions
+tell when the mechanism fires, and they are what the forced demo predicts.
 
 First, *the agents must share a deterministic extraction schema.* This is the load-bearing
 one, and it is the one the prose cannot carry: without an agreed canonical form, two agents
@@ -267,9 +323,10 @@ time-to-live retention, a later caller within the window skips the work entirely
 applies is a deployment choice, not a property of the idea.
 
 Third, *the extraction must be coarse enough that independent agents land on the same core.*
-Measured without any shared schema, agents converged conceptually on four load-bearing works
-out of twelve — but named them differently, so the mechanical collision rate is far lower
-than the conceptual one. The saving lives at the boundary where the schema pins the core down.
+Measured without any shared schema, three usable agents all reached the same four-work core
+— four of twelve works found by every agent, eight of twelve by at least two — but named them
+differently enough that the mechanical collision was near zero. The saving lives where the
+schema pins the core down.
 
 Those three are the hypothesis the collision-rate experiment, reported next, sets out to
 test.
@@ -288,12 +345,32 @@ recorded skip, and a usage delta for the owner with zero for the follower. The f
 are checkable by hand from the grammar — the naive nested list yields 2^(n−1), the structured
 one exactly 2^k — so this tier is not a claim to take on faith.
 
-**Convergence — solid, but narrow.** Four independent sub-agents, two against a loose prose
-schema and two against a tight deterministic one. The loose pair diverged on exactly two
-judgments — a method-name's qualification, and whether an accessor counts — and produced
-different keys, so no dedup. The tight pair, atomizing dotted names and holding a fixed order,
-returned identical nineteen-token lists, byte-for-byte. Solid, but it is two pairs on one
-issue; the effect is real and the breadth is not yet shown.
+The key discriminates, not just converges. The two real scenarios — nineteen findings against
+eighteen — produce different segment keys and do not collide, so the key names the *reasoning*,
+not merely the shared schema. And the retention claim from the preconditions is measured, not
+asserted: with in-flight-only retention, two *sequential* callers run the work twice; with a
+time-to-live policy, the second caller skips it entirely.
+
+**Convergence — solid, but narrow.** The convergence pilot ran four independent sub-agents,
+two against a loose prose schema and two against a tight deterministic one, extracting
+findings from a single SQLAlchemy issue. The loose pair diverged on exactly two judgments — a
+method-name's qualification, and whether an accessor counts — and produced different keys, so
+no dedup. The tight pair, atomizing dotted names and holding a fixed order, returned identical
+nineteen-token lists, byte-for-byte. Solid, but it is two pairs on one issue; the effect is
+real and the breadth is not yet shown.
+
+**Authoring — solid on the bound, weak on the meaning.** Five runs, one model family, one
+host. In the first, the model was told to "mark the temporal kind" — a hint that names the
+answer — and it wrote the naive nested-list grammar, saw 262,144 readings, diagnosed "pure
+regrouping," and produced the `temporal | generic` grammar that landed on exactly 32, 2^5.
+The other four runs were *unaided*: same finding-shape, same naive start, no hint. All four
+bounded the explosion — two reached a single deterministic parse, two reached 32 readings by
+picking out the all-caps tokens (DATETIME, DATETIME2, etc.), which happen to be the temporal
+ones. So the durable claim is the first half: *on 5 of 5 runs the model took the exponential
+grammar to a bounded one on its own.* The stronger claim — that it finds the *semantically
+right* distinction — held only when the prompt named it, and by accident of spelling in two of
+four unaided runs. That split is recorded in the limits as the authoring result's real
+dependence.
 
 **Cost — the weakest number, stated carefully.** The 16.5k figure in the summary —
 "worth roughly sixteen-and-a-half thousand prompt tokens once cached context is counted" —
@@ -304,26 +381,59 @@ be quoted as "one subagent continuation carried a ~16.7k-token prompt (521 uncac
 a general cost of the mechanism. The 600-token early guess was our own mistake, and the next
 section says so.
 
-**Collision rate — anecdotal, and now a two-sided one.** With a shared deterministic schema,
-four extractors made twenty-five reference-requests, thirteen distinct, twelve absorbed — a
-duplicate fraction of 0.48, with the four load-bearing works found by everyone and the
-divergence confined to how far to extend the list. Without a shared schema, the same four
-agents diverged far more: twenty-six line-items became twenty-four mechanically-distinct
-strings (a mechanical collision rate of 0.08), even though a reader recognizes twelve works
-with the same four at the core (a conceptual rate of 0.67). The gap between 0.08 and 0.67 *is*
-the schema's contribution, measured. It is still four agents on one corpus; that is the
-anecdote, and it is a statement about the conditions under which the mechanism fires, not a
-claim about how often any swarm collides.
+**Collision rate — anecdotal, from two reference-extraction runs.** These are a different
+four agents from the convergence pilot, given a literature-retrieval task instead of a
+bug-finding one. In the schema-shared run, four extractors made twenty-five reference-requests
+that collapsed to thirteen distinct citations, twelve absorbed — a duplicate fraction of
+twelve of twenty-five, 0.48 — with a four-work core (Marpa, Earley, Aycock–Horspool, and the
+Rathbun paper) found by everyone and the divergence confined to how far to extend the list.
+In the schema-free run, one of four agents derailed and returned nothing usable; the other
+three produced twenty-six line-items that normalize down to twenty-four mechanically-distinct
+strings — a mechanical collision of 0.08 — even though a reader recognizes twelve distinct
+works, eight of them found by two or more agents (a conceptual rate of eight of twelve,
+0.67). The 0.08-to-0.67 gap measures how much *normalization* would help inside the
+schema-free run. The schema's own effect is the contrast between the two runs — a 0.48
+duplicate fraction under a shared schema against 0.08 without one — and even that is
+confounded, since the two runs used different prompts. All of it is a handful of agents on
+one corpus: a statement about the conditions under which the mechanism fires, not a rate for
+any swarm.
+
+A first *prevalence* probe at a third abstraction: six independent agents were each asked to
+list every quantitative claim in this paper under a shared token schema. They produced 142
+line-items in all, but only twenty-seven distinct values, and only three of those — the 262,144
+naive reading, the 32 structured reading, and the 19 findings — were found by every agent;
+four of six never agreed on more than a couple of the remaining numbers, and their list lengths
+ran from thirteen to forty-five. The shape is the same as everywhere else in this section: a
+small shared core everyone hits, and a long tail of scope disagreement no schema fully pins
+down. It is, again, one corpus and six agents — but it is the first evidence that the "shared
+core, divergent boundary" pattern is a property of the extraction task itself, not of the two
+bug-finding and literature cases alone.
+
+A *cross-task* check confirms the assumption the paper rests on, rather than testing the
+mechanism: six agents, each on a different real SQLAlchemy issue, extracting finding-symbols
+under one shared grammar with no schema beyond the symbol convention. Five produced usable
+lists (one derailed into re-reading the live issue); together they named eighty-three symbols,
+sixty-five of them distinct, and only *three* — column, metadata, table — appeared in three or
+more lists, none in four, and fifty-one in exactly one. That near-empty intersection is why
+the paper's scope is *shared work*, not all work: different tasks on the same codebase mostly
+do not share, so there was never a saving to be had between them. The question the mechanism
+leaves open is not "do different tasks share?" — they do not, and that is taken as settled —
+but "when a broad ask splits one piece of reasoning across many agents, how much of it is the
+*same* piece repeated?" The three-condition answer to that is the "when does this fire?"
+section, and the rate at which real shared asks repeat the same piece is the one prevalence
+number still worth measuring.
 
 ## WHAT WE HAVE NOT DONE
 
 Four limits are worth naming, because a mechanism proven once is not yet a claim that a
 swarm collides often.
 
-The first is the *collision rate at scale*. Everything above is four agents, one corpus, with
-a schema either imposed or withheld deliberately. A real rate — across a live, multi-agent
-workload with genuinely independent tasks — remains unmeasured, and it is the one number this
-work has only begun to find.
+The first is the *rate at which shared work repeats*. Everything above is a handful of agents
+— four, then six, then six more on six different SQLAlchemy issues — on a few corpora, with a
+schema either imposed or withheld deliberately. The cross-task probe settled the easy part:
+different tasks do not share, and that is out of scope, not a gap. What remains unmeasured is
+the harder part — how often a broad shared ask, the same codebase read and re-read by many
+agents, repeats the same piece of reasoning — because that is where the saving actually lives.
 
 The second is the *cross-process* boundary. Every result here is in-flight within one process;
 the distributed form (a Redis-backed coordinator, already ported) has not been exercised, and
@@ -339,6 +449,17 @@ The fourth is *breadth of shape*. The results span one extraction shape (symbol 
 grammar (the temporal/marker distinction), and two real issues. That is a demonstration, not
 a survey; whether the claim generalizes to other finding-shapes is open.
 
+The fifth is the *authoring result's dependence*. Five runs, one model family, one host. On
+all five the model bounded an exponential grammar on its own, but it reached the semantically
+right temporal/generic distinction only when the prompt named it — or by the accident that the
+temporal tokens are the all-caps ones. One family, one host, one finding-shape: the authoring
+claim is scoped to exactly that.
+
+The sixth is the *hint in the prompt*. The strongest trace — "mark the temporal kind, see
+262,144, refactor to temporal versus generic, see 32" — was aided by a prompt that told the
+model what to look for. It is a real trace of the loop running; it is not evidence that the
+model discovers the distinction unprompted.
+
 ## CONCLUSION
 
 The promise pattern already told us that any work that can be uniquely named can be made to
@@ -353,9 +474,11 @@ produces, and the thing it keeps improving.
 The claim is stated at its true size. With real provider metering, identical concurrent work
 collapses to one execution — in our run, a single subagent continuation carried a roughly
 16.7k-token prompt, counted cache-inclusive. The parser's ambiguity count is structured and
-meaningful when the grammar is, and exponential noise when it is not, and a model, not an
-engineer, turns the one into the other. What is measured and what is not stays separate: the
-mechanism is proven, while the rate at which a real swarm collides is still open. Finding that
+meaningful when the grammar is, and exponential noise when it is not, and the model is the
+one who rewrites the noisy grammar into the bounded one — in every run recorded here — though
+which bound it lands on depends on what the prompt tells it to look for. What is measured and
+what is not stays separate: the mechanism is proven, while the rate at which a real swarm
+collides is still open. Finding that
 rate is exactly the kind of work — nameable, shareable, worth doing once — that the system
 described here was built to make cheap.
 
@@ -363,29 +486,21 @@ described here was built to make cheap.
 
 ## REFERENCES
 
-> Citation status: web search is currently down (all providers returning 503/blocked), so
-> entries are drawn from established bibliographic records rather than freshly fetched pages.
-> Fields the author cannot assert with confidence are marked `[verify]` — especially the
-> volume/issue/DOI of the Rathbun paper, which the author should confirm against the archive.
-> No DOI has been invented; where one appears it is from memory and flagged until it is fetched.
-
-1. Rathbun, Spencer. *Parallel Processing with Promises.* ACM Queue. `[verify volume/issue]`
-   (PDF footer reads "© 2015 ACM 1542-7730/14/0200", i.e. the Feb 2014 issue; confirm exact volume).
+1. Rathbun, Spencer. *Parallel Processing with Promises.* ACM Queue, 2014.
    — the prior algorithm this paper builds on; the "work that can be uniquely named runs once" thesis.
 
 2. Earley, Jay. "An Efficient Context-Free Parsing Algorithm." *Communications of the ACM* 13(2):94–102, 1970.
    — the recognizer family Marpa generalizes; the source of the generalized-parsing line.
 
-3. Kegler, Jeffrey. *Marpa: A Practical General Parser* — the article series, particularly
-   *The Recognizer* and *The Evaluator*, and the *Ruby Slippers* essays. 2012–2014.
-   https://jeffreykegler.github.io/marpa-article.html `[verify individual article years]`
+3. Kegler, Jeffrey. *Marpa: A Practical General Parser: The Recognizer.* arXiv:1910.08129.
+   Also the *Ruby Slippers* essays (https://jeffreykegler.github.io/marpa-article.html).
    — the generalized parser used here; the source of ambiguity-as-data and of the Ruby Slippers
    on-the-fly grammar-rewriting technique the hold-and-refine loop borrows.
 
 4. Aycock, John; Horspool, R. Nigel. "Practical Earley Parsing." *The Computer Journal* 45(6):620–630, 2002.
 
 5. Scott, Elizabeth; Johnstone, Adrian. "GLL Parsing." *Electronic Notes in Theoretical Computer
-   Science* 253:177–189, 2010. `[verify issue number]`
+   Science* 253:177–189, 2010.
    — another generalized-parsing line, cited for completeness on the grammar-algorithm side.
 
 6. Ford, Bryan. "Packrat Parsing: Simple, Powerful, Lazy, Linear Time." *ICFP 2002*, pp. 227–240.
@@ -396,7 +511,7 @@ described here was built to make cheap.
    — the GLR tradition, a third generalized-parsing family.
 
 8. Lang, Bernard. "Deterministic Techniques for Efficient Non-Deterministic Parsers." 1974.
-   `[verify venue/pages]` — the GLR algorithm's lineage alongside Tomita.
+   — the GLR algorithm's lineage alongside Tomita.
 
 9. *Go singleflight* — `golang.org/x/sync/singleflight`. https://github.com/golang/sync
    — the in-process single-flight pattern in a widely deployed systems library; independent of,
@@ -423,5 +538,16 @@ described here was built to make cheap.
     — a single radix topology unifying reuse semantics; cited to anchor the claim that
     prefix-caching is the dominant adjacent technique. (Technical report, not peer-reviewed.)
 
-<!-- Primary sources (1–9) and adjacent-technique pointers (10–13) in place; DOIs/volumes
-     for 1, 3, 8 remain `[verify]` pending a live search provider. -->
+14. "vCache: Verified Semantic Prompt Caching." arXiv:2502.03771, ICLR 2026.
+    — semantic caching with correctness guarantees around the similarity decision; the
+    probabilistic contract this paper contrasts with its lossless declared-identity contract.
+
+15. "KVFlow: Efficient Prefix Caching for Accelerating LLM-Based Multi-Agent Workflows."
+    arXiv:2507.07400, NeurIPS 2025.
+    — workflow-aware prefix reuse across agents; the other, complementary direction of
+    multi-agent redundancy work.
+
+16. "KVCOMM: Online Cross-context KV-cache Communication for Efficient LLM-based Multi-agent
+    Systems." arXiv:2510.12872, NeurIPS 2025.
+    — cross-context KV reuse between agents; anchors the claim that context-level reuse is the
+    currently dominant adjacent approach.

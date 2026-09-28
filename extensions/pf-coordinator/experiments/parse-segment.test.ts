@@ -6,6 +6,7 @@ import { afterAll, expect, test } from "bun:test";
 import { createDeferred } from "../promiseflow/index.ts";
 import {
   DEFAULT_GRAMMAR,
+  TYPED_GRAMMAR,
   coordinatedReason,
   dedupSavings,
   parseSegment,
@@ -98,8 +99,8 @@ test("coordinatedReason: two concurrent same-state callers → one LLM call", as
   };
 
   const gate = createDeferred<void>();
-  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, generate));
-  const pB = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, generate));
+  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, "What is the root cause?", generate));
+  const pB = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, "What is the root cause?", generate));
   gate.resolve();
   const [ra, rb] = await Promise.all([pA, pB]);
   const after = reasonCounts();
@@ -123,8 +124,8 @@ test("coordinatedReason records REAL provider usage for the one owner turn", asy
   });
 
   const gate = createDeferred<void>();
-  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, generate));
-  const pB = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, generate));
+  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, "What is the root cause?", generate));
+  const pB = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, "What is the root cause?", generate));
   gate.resolve();
   const [ra, rb] = await Promise.all([pA, pB]);
   const after = reasonCounts();
@@ -137,4 +138,79 @@ test("coordinatedReason records REAL provider usage for the one owner turn", asy
   expect(ra.output).toBe(rb.output);
   // Tokens the follower was spared = the one skipped turn's real input+output.
   expect((after.skippedLlmCalls - before.skippedLlmCalls) * (usage.input + usage.output)).toBe(200);
+});
+
+test("coordinatedReason: same findings, different questions → distinct keys (no wrongful collapse)", async () => {
+  const fragments = ["DATETIME2", "TIME", "Column"];
+  const qRoot = "What is the root cause?";
+  const qFix = "Propose a minimal fix.";
+  const before = reasonCounts();
+  let calls = 0;
+  const generate = (label: string) => async (): Promise<string> => {
+    calls += 1;
+    return label;
+  };
+
+  const gate = createDeferred<void>();
+  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, qRoot, generate("root")));
+  const pB = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, qFix, generate("fix")));
+  gate.resolve();
+  const [ra, rb] = await Promise.all([pA, pB]);
+  const after = reasonCounts();
+
+  // Two DIFFERENT prompts at the same findings are different work: TWO LLM calls,
+  // no follower. The prompt is part of the segment identity.
+  expect(ra.key).not.toBe(rb.key);
+  expect(after.llmCalls - before.llmCalls).toBe(2);
+  expect(after.skippedLlmCalls - before.skippedLlmCalls).toBe(0);
+  expect(calls).toBe(2);
+  expect(ra.output).toBe("root");
+  expect(rb.output).toBe("fix");
+});
+
+test("segmentKey: prompt participates in identity; parse segments omit it", () => {
+  const grammar = DEFAULT_GRAMMAR;
+  const fragments = ["a"];
+  const noPrompt = segmentKey({ version: 1, grammar, fragments });
+  const p1 = segmentKey({ version: 1, grammar, fragments, prompt: "root cause" });
+  const p2 = segmentKey({ version: 1, grammar, fragments, prompt: "minimal fix" });
+  // Parse identity is unchanged (no prompt in payload).
+  expect(noPrompt).not.toBe(p1);
+  // Different prompts → different identities.
+  expect(p1).not.toBe(p2);
+});
+
+test("segmentKey: the grammar is part of identity — G1≠G2 means no dedup", () => {
+  const fragments = ["DATETIME2", "TIME", "Column"];
+  const kDefault = segmentKey({ version: 1, grammar: DEFAULT_GRAMMAR, fragments });
+  const kTyped = segmentKey({ version: 1, grammar: TYPED_GRAMMAR, fragments });
+  // Same fragments, different grammar source → different segment identities.
+  expect(kDefault).not.toBe(kTyped);
+  // Deterministic: identical grammar+input reproduces the same key.
+  expect(segmentKey({ version: 1, grammar: TYPED_GRAMMAR, fragments })).toBe(kTyped);
+});
+
+test("coordinatedReason: same findings+prompt, different grammars → no collapse", async () => {
+  const before = reasonCounts();
+  const fragments = ["DATETIME2", "TIME", "Column"];
+  const prompt = "What is the root cause?";
+  let calls = 0;
+  const generate = (label: string) => async (): Promise<string> => {
+    calls += 1;
+    return label;
+  };
+
+  const gate = createDeferred<void>();
+  const pA = gate.promise.then(() => coordinatedReason(DEFAULT_GRAMMAR, fragments, prompt, generate("default")));
+  const pB = gate.promise.then(() => coordinatedReason(TYPED_GRAMMAR, fragments, prompt, generate("typed")));
+  gate.resolve();
+  const [ra, rb] = await Promise.all([pA, pB]);
+  const after = reasonCounts();
+
+  // The grammar is in the key: two agents on the same findings+question but with
+  // different grammars are NOT the same work — both run, no follower.
+  expect(ra.key).not.toBe(rb.key);
+  expect(after.llmCalls - before.llmCalls).toBe(2);
+  expect(after.skippedLlmCalls - before.skippedLlmCalls).toBe(0);
+  expect(calls).toBe(2);
 });

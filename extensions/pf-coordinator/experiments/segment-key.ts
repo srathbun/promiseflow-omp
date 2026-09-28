@@ -21,23 +21,31 @@ export interface SegmentKeyInput {
   grammar: string;
   /** Ordered fragment prefix: fragment[1], fragment[2], ..., fragment[n]. */
   fragments: string[];
+  /**
+   * The derivation goal (question/prompt) for LLM-continuation segments. Two
+   * agents at the same `(grammar, fragments)` but different prompts are doing
+   * different work and must NOT share a key — the prompt is part of the
+   * identity. Parse-only segments omit it.
+   */
+  prompt?: string;
   /** Identity-scheme namespace; defaults to the parse-segment scheme. */
   scheme?: string;
 }
 
 /**
  * `"aristotle-turn/v1#<sha256>"`, where `<sha256>` = `stableHash` of the
- * canonical JSON `{ scheme, version, grammar, fragments }`. `stableHash`
- * recursively sorts object keys and preserves array order, so the fragment
- * ORDER is part of the identity.
+ * canonical JSON `{ scheme, version, grammar, fragments }` (plus `prompt` when
+ * present). `stableHash` recursively sorts object keys and preserves array
+ * order, so the fragment ORDER is part of the identity.
  */
 export function segmentKey(input: SegmentKeyInput): string {
   const scheme = input.scheme ?? SEGMENT_SCHEME;
-  const payload = {
+  const payload: Record<string, unknown> = {
     scheme,
     version: input.version,
     grammar: input.grammar,
     fragments: input.fragments,
   };
+  if (input.prompt !== undefined) payload.prompt = input.prompt;
   return `${scheme}#${stableHash(payload)}`;
 }

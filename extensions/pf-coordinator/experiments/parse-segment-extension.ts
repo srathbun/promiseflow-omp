@@ -100,7 +100,7 @@ export default function (pi: ExtensionAPI): void {
       }
       const grammar = typeof p.grammar === "string" && p.grammar.length > 0 ? p.grammar : DEFAULT_GRAMMAR;
       const question = typeof p.question === "string" && p.question.length > 0 ? p.question : "State the most likely root cause.";
-      const r = await coordinatedReason(grammar, fragments, async (fs) => {
+      const r = await coordinatedReason(grammar, fragments, question, async (fs) => {
         const res = await runTurn({ promptText: `${question}\n\nFindings:\n${fs.join("\n")}` });
         return {
           text: res.replyText,

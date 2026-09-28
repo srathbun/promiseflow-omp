@@ -255,9 +255,10 @@ const llmTokens = { input: 0, output: 0 };
 export function coordinatedReason(
   grammar: string,
   fragments: string[],
+  prompt: string,
   generate: (fragments: string[]) => Promise<LlmStep> | LlmStep,
 ): Promise<ReasonResult> {
-  const key = segmentKey({ scheme: REASON_SCHEME, version: SEGMENT_GRAMMAR_VERSION, grammar, fragments });
+  const key = segmentKey({ scheme: REASON_SCHEME, version: SEGMENT_GRAMMAR_VERSION, grammar, fragments, prompt });
   return coordinator
     .getOrRun(key, async () => {
       llmExecutions.count += 1;
