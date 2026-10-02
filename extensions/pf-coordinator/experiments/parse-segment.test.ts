@@ -2,7 +2,7 @@
 // across two independent callers (i.e., two subagents) via the segment key.
 // Uses the REAL module-scoped singleton from parse-segment.ts (not a fresh
 // coordinator per test), with delta assertions against its counters.
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, beforeEach, expect, test } from "bun:test";
 import { createDeferred } from "../promiseflow/index.ts";
 import {
   DEFAULT_GRAMMAR,
@@ -12,13 +12,18 @@ import {
   estimateTokens,
   grammarAuthoringCosts,
   parseSegment,
+  parseSegmentSteps,
   reasonCounts,
+  resetSegmentCoordinator,
+  segmentCoordinatorConfig,
   segmentStats,
+  segmentTrace,
   shutdownSegment,
 } from "./parse-segment.ts";
 import { segmentKey } from "./segment-key.ts";
 
 afterAll(() => shutdownSegment());
+beforeEach(() => resetSegmentCoordinator());
 
 test("stub grammar is genuinely ambiguous (vague, not mechanical)", async () => {
   const r = await parseSegment(DEFAULT_GRAMMAR, ["a b c"]);
@@ -272,4 +277,67 @@ test("coordinatedReason charges a model-authored grammar as a one-time authoring
 
   expect(after.grammarAuthorTokens - before.grammarAuthorTokens).toBe(estimateTokens(authored));
   expect(r.grammarAuthorTokens).toBe(after.grammarAuthorTokens);
+});
+
+test("a completed segment is cached: a later sequential caller reuses it", async () => {
+  const fragments = ["DATETIME2", "Column"];
+  const first = await parseSegment(DEFAULT_GRAMMAR, fragments);
+  expect(segmentStats().executions).toBe(1);
+
+  // Sequential second caller, after the first has completed: retention serves the
+  // cached result instead of re-running the parse.
+  const second = await parseSegment(DEFAULT_GRAMMAR, fragments);
+  const after = segmentStats();
+
+  expect(after.executions).toBe(1);
+  expect(after.cacheHits).toBe(1);
+  expect(second.parse.valueCount).toBe(first.parse.valueCount);
+});
+
+test("segmentTrace reports collision rate and occurrence histogram", async () => {
+  const fragments = ["DATETIME2", "Column"];
+  await parseSegment(DEFAULT_GRAMMAR, fragments); // owner
+  await parseSegment(DEFAULT_GRAMMAR, fragments); // cached reuse, same key again
+  const trace = segmentTrace();
+
+  expect(trace.total).toBe(2);
+  expect(trace.distinct).toBe(1);
+  expect(trace.collisionRate).toBeCloseTo(0.5);
+  expect(trace.histogram[2]).toBe(1);
+});
+
+test("coordinator backend: memory by default, redis when configured", () => {
+  const savedUrl = process.env.PF_REDIS_URL;
+  const savedTtl = process.env.SEGMENT_TTL_SECONDS;
+  try {
+    expect(segmentCoordinatorConfig().backend).toBe("memory");
+    expect(segmentCoordinatorConfig().ttlSeconds).toBeGreaterThan(0);
+
+    process.env.PF_REDIS_URL = "redis://127.0.0.1:6379/15";
+    expect(segmentCoordinatorConfig().backend).toBe("redis");
+
+    process.env.SEGMENT_TTL_SECONDS = "0";
+    expect(segmentCoordinatorConfig().ttlSeconds).toBe(0);
+  } finally {
+    if (savedUrl === undefined) delete process.env.PF_REDIS_URL;
+    else process.env.PF_REDIS_URL = savedUrl;
+    if (savedTtl === undefined) delete process.env.SEGMENT_TTL_SECONDS;
+    else process.env.SEGMENT_TTL_SECONDS = savedTtl;
+  }
+});
+
+test("per-step variant dedups a shared step reached from different flows", async () => {
+  // "TIME" is shared but sits at a different position in each flow — the ordered
+  // prefix of the two flows differ, yet the per-step key collides.
+  await parseSegmentSteps(TYPED_GRAMMAR, ["DATETIME2", "TIME"]);
+  const before = segmentStats();
+  await parseSegmentSteps(TYPED_GRAMMAR, ["Column", "TIME"]);
+  const after = segmentStats();
+
+  // Flow B: "Column" is new work, "TIME" is reused from flow A's retained result.
+  expect(after.executions - before.executions).toBe(1);
+  expect(after.cacheHits - before.cacheHits).toBe(1);
+
+  // The trace sees the shared "TIME" step twice under one key.
+  expect(segmentTrace().histogram[2]).toBe(1);
 });
