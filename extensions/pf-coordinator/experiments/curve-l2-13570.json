@@ -1,0 +1,5 @@
+[
+  { "issue": "#13570", "agent": "A", "findings": ["Connection","PoolProxiedConnection","_ConnectionFairy","_ConnectionRecord","_checkin","_close_connection","_finalize_fairy","connection_record","fairy_ref"] },
+  { "issue": "#13570", "agent": "B", "findings": ["Connection","PoolProxiedConnection","_ConnectionFairy","_ConnectionRecord","_checkin","_close_connection","_finalize_fairy","connection_record","fairy_ref"] },
+  { "issue": "#13570", "agent": "C", "findings": ["Connection","PoolProxiedConnection","_ConnectionFairy","_ConnectionRecord","_checkin","_close_connection","_finalize_fairy","connection_record","fairy_ref","get_raw_connection","raw_connection"] }
+]

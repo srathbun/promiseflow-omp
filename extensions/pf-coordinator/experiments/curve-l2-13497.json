@@ -1,0 +1,5 @@
+[
+  { "issue": "#13497", "agent": "A", "findings": ["Column","CreateTable","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","TIME","Table","_parse_column_info","precision","scale"] },
+  { "issue": "#13497", "agent": "B", "findings": ["Column","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","TIME","Table","_parse_column_info","precision","scale"] },
+  { "issue": "#13497", "agent": "C", "findings": ["Column","CreateTable","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","TIME","Table","_parse_column_info","precision","scale"] }
+]

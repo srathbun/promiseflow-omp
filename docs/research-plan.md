@@ -183,9 +183,11 @@ W2 follow, because they extend the *shape* rather than the machinery.
 | W1 SQLAlchemy sweep | ✅ **executed** — 5 agents over 5 real issues (results below) |
 | W2 choose-your-own-adventure | ⬜ **not executed** (needs a shared prose grammar + agents) |
 | W3 UI test repetition | ⬜ **not executed** (needs a UI harness) |
+| Long-horizon convergence (multi-turn loop) | ⬜ designed, **not executed** — needs a live multi-turn grammar-refinement loop |
 
-The two remaining workload probes (W2, W3) still need live model-backed agents driving the tools
-against a real corpus or harness — compute, not code. W1 ran against the built harness.
+The remaining probes need live model-backed agents: W2/W3 against a corpus or harness, and the
+long-horizon probe against a multi-turn loop — compute, not code. W1 and the single-turn curve
+ran against the built harness.
 
 ### W1 result — measured
 
@@ -242,3 +244,48 @@ generic strict schema — low, and the honest answer to "is it worth it." The on
 converge (#13497) is the case where a task-specific vocabulary is crisp; whether a model-authored,
 per-task schema can drive that rate toward 1.0 at scale — and at what authoring cost — is now the
 precise open question, and it is a schema-authoring question, not a token question.
+
+**Convergence vs schema tightness (the curve).** Escalating the schema on the same issue, three
+agents per level (`convergence-curve.ts`, `curve-l2-*.json`):
+
+| issue | level | pairwise byte-identical | pairwise set-identical |
+|---|---|---|---|
+| #13497 | L0 loose | 0% | 0% |
+| #13497 | L1 strict | 33% | 100% |
+| #13497 | L2 very strict | 33% | 33% |
+| #13570 | L1 strict | 0% | 0% |
+| #13570 | L2 very strict | 33% | 33% |
+
+Byte-convergence **plateaus at ~33%**: tightening the schema past "strict" does not push it toward
+1.0 — one of three agents still diverges, every level, on 1–2 boundary symbols (`CreateTable`,
+`get_raw_connection`, `raw_connection`). Worse, tightening *shifts the target*: at L2 the agents
+agree the symbol list is smaller (14 vs 19), so even set-convergence *drops* as the schema narrows
+which names count. The residual divergence is irreducible judgment — the boundary between
+"finding-symbol" and "reproduction scaffolding" is fuzzy and no prose schema pins it. The only way
+to force 100% is full enumeration — a template that names the answer — at which point the model's
+"naming" is no longer independent reasoning, and the setup cost approaches doing the work.
+
+This is a **single-turn, frozen-schema floor — not a ceiling.** The design never assumed a
+written-once schema: it uses Marpa ambiguity precisely to refine the grammar *lazily*, defining
+only the parts a problem engages, and only when they are hit. A one-shot extraction with a static
+grammar cannot see that, so ~1/3 is where convergence sits at turn 0, before the loop has run.
+Whether convergence *rises with engagement length* is the open question, and it is the next
+measurement, not this one.
+
+### Long-horizon hypothesis & probe (not yet run)
+
+**Hypothesis.** Byte-convergence rises with the number of turns, because the grammar is refined
+in-loop and co-walkers that hit the same ambiguity converge on the same refinement. The grammar is
+also the vocabulary constraint: a token the refined grammar rejects (reproduction scaffolding)
+returns INVALID, so an agent drops it — and two agents independently chase the same valid subset,
+washing out the extraction divergence measured above.
+
+**Probe (needs a live multi-turn loop).** Take a long, multi-part problem — 2-hour-scale, many
+sub-decisions — not one issue. Two or more agents each run the loop: emit findings → `parse` →
+read AMBIGUOUS/INVALID → `extend` the grammar where the boundary is load-bearing → reparse, all
+from a deliberately loose `doc ::= finding+` grammar. Measure per turn t: (a) *grammar
+convergence* — do the agents' grammars byte-converge on the shared parts? (b) *segment collision*
+— do their `(grammar, findings)` keys collide? (c) the *stabilization turn* — where convergence
+saturates. The prediction: collision rises over t toward the refined scope's ceiling, not the
+turn-0 floor of ~1/3. This is the loop the paper's grammar-authoring run exercised once for one
+agent; the missing number is whether it *converges across agents over a long problem*.
