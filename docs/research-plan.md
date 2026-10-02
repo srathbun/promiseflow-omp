@@ -206,3 +206,19 @@ subsystems, ~0.36 within one subsystem, ~0.55 for the same issue. The three focu
 on exactly the 19-symbol reference core and diverged only on the boundary — a measured N=3/N=4
 reproduction of the paper's "shared core, divergent boundary." This is precisely the case the
 `parseSegmentSteps` per-step variant captures and the whole-turn key does not.
+
+**Convergence is the schema, not the prompt (tight re-run).** The same focused config re-run with
+a *strict* schema (explicit include categories + an explicit exclude list) closed the gap:
+
+| config | whole-turn collision | symbol-set convergence | byte-identical to reference |
+|---|---|---|---|
+| focused, loose schema | 0.00 | no (37 distinct symbols) | 0/3 |
+| focused, STRICT schema | **0.33** | **yes — all 3 → the 19 symbols** | **2/3** |
+
+Under the strict schema every agent landed on the identical 19-symbol set, and 2 of 3 were
+byte-identical. The one miss is instructive: it diverged only in *ordering* — it put the
+leading-underscore `_parse_column_info` before the uppercase block instead of between uppercase
+and lowercase. Because the segment key hashes the *ordered* list, a sort rule the schema leaves
+ambiguous is itself a convergence killer. The anchor for the savings-model's `convergence`
+parameter is now measured: **0 under a loose schema, ~0.67 (byte) to 1.0 (set) under a strict one**
+— and the residual gap is fixable by pinning the lexicographic rule to raw byte order.

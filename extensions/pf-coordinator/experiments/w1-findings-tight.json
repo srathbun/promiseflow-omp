@@ -1,0 +1,5 @@
+[
+  { "issue": "#13497", "agent": "tight-A", "findings": ["Column","CreateTable","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","Table","TIME","_parse_column_info","columns","create_engine","get_columns","inspect","precision","scale","sys"] },
+  { "issue": "#13497", "agent": "tight-B", "findings": ["Column","CreateTable","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","Table","TIME","_parse_column_info","columns","create_engine","get_columns","inspect","precision","scale","sys"] },
+  { "issue": "#13497", "agent": "tight-C", "findings": ["_parse_column_info","Column","CreateTable","DATETIME","DATETIME2","DATETIMEOFFSET","MSDialect","MetaData","NumericCommon","SMALLDATETIME","TIME","Table","columns","create_engine","get_columns","inspect","precision","scale","sys"] }
+]

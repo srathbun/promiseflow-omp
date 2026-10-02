@@ -23,12 +23,12 @@ const reference: Extraction[] = [
   { issue: "#13570", agent: "reference (paper)", findings: SCENARIO_13570.findings },
 ];
 
-function loadFresh(): Extraction[] {
+function load(name: string): Extraction[] {
   try {
-    const raw = readFileSync(new URL("./w1-findings.json", import.meta.url), "utf8");
+    const raw = readFileSync(new URL(`./${name}`, import.meta.url), "utf8");
     return (JSON.parse(raw) as Extraction[]).filter((e) => Array.isArray(e.findings) && e.findings.length > 0);
   } catch (e) {
-    console.error("could not load w1-findings.json:", e instanceof Error ? e.message : e);
+    console.error(`could not load ${name}:`, e instanceof Error ? e.message : e);
     return [];
   }
 }
@@ -58,7 +58,7 @@ function report(name: string, description: string, flows: string[][]): void {
   }
 }
 
-const fresh = loadFresh();
+const fresh = load("w1-findings.json");
 const byIssue = new Map<string, Extraction[]>();
 for (const e of fresh) {
   const list = byIssue.get(e.issue) ?? [];
@@ -70,9 +70,21 @@ const ref13497 = reference[0]!;
 const ref13570 = reference[1]!;
 
 const focus13497 = [...(byIssue.get("#13497") ?? []), ref13497];
-report("FOCUSED", "3 independent agents on issue #13497", focus13497.map((e) => e.findings));
+report("FOCUSED (loose schema)", "3 independent agents on issue #13497", focus13497.map((e) => e.findings));
 
 const cluster = [...(byIssue.get("#10504") ?? []), ...(byIssue.get("#8035") ?? []), ...(byIssue.get("#7415") ?? []), ref13497];
 report("CLUSTERED", "one agent each on 4 SQL Server reflection issues", cluster.map((e) => e.findings));
 
 report("DISJOINT", "#13497 (reflection) vs #13570 (pool GC)", [ref13497.findings, ref13570.findings]);
+
+const tight = load("w1-findings-tight.json");
+if (tight.length > 0) {
+  const tightFlows = tight.map((e) => e.findings);
+  report("FOCUSED-TIGHT", `${tight.length} independent agents on #13497 under the STRICT schema`, tightFlows);
+  const refJson = JSON.stringify(ref13497.findings);
+  const byteIdentical = tightFlows.filter((f) => JSON.stringify(f) === refJson).length;
+  const canonical = (f: string[]) => [...new Set(f)].sort().join("\u001F");
+  const sameSet = tightFlows.every((f) => canonical(f) === canonical(ref13497.findings));
+  console.log(`  byte-identical to the reference: ${byteIdentical}/${tightFlows.length}`);
+  console.log(`  same symbol set as the reference : ${sameSet ? "yes" : "no"}`);
+}
