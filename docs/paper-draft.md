@@ -30,6 +30,16 @@ to pay for. In short: the problem is repeated reasoning; the cost is repeated mo
 remedy is a name for reasoning, built by a parser; and the saving, today, is on shared
 side-work, not on the agent's own call.
 
+One thing separates this from the "just hash your work" advice that has always been obvious in
+principle and never worth doing in practice: naming the repeatable unit is real labor.
+Deciding what "the same work" *is* — which symbols count, which schema, which boundaries — is
+the step a sensible engineer refuses, because the duplicate tokens cost less than the analysis.
+This system moves that labor off the adoption checklist and into the loop. The model names the
+work: it writes the grammar that defines the unit, pays the one-time cost of writing and
+refining it, and that cost amortizes across every agent that later reaches the same unit. The
+setup is not a precondition a human must satisfy; it is the first thing the system does for
+you.
+
 ---
 
 When a team of agents is asked to build one thing together, the most expensive thing they
@@ -42,15 +52,17 @@ the identical thought. The results are paid for, token by token, once per agent.
 describes a small, self-contained idea that removes that waste: *parse the work before it is
 run, so that identical work can be named, and named work can be run once.*
 
-The idea leans on two existing tools, neither of which we invented. The first is a
-generalized parser, a program that reads a grammar and reports not merely whether text
-conforms, but *every* way it could conform. The second is a single-flight coordination
-pattern built on promises, the subject of an earlier paper (Rathbun, *Parallel Processing
-with Promises*), which guarantees that work bearing the same name executes once even when
-many workers demand it at once. The contribution of this paper is the bridge between them:
-a name for *reasoning*, computed deterministically from a parse, before the expensive step
-begins. What we are about to tell you is that this bridge holds — under measurement, and
-against real agents' stubborn habit of disagreeing on how to say the same thing.
+The idea leans on two tools, and only one of them is borrowed. The first is a generalized
+parser — a program that reads a grammar and reports not merely whether text conforms, but
+*every* way it could conform. That is Jeffrey Kegler's Marpa, in the Earley tradition, and it
+is not ours. The second is our own: the single-flight coordination pattern built on promises,
+described in the earlier *Parallel Processing with Promises* (Rathbun, ACM Queue 2014), which
+guarantees that work bearing the same name executes once even when many workers demand it at
+once. This paper is that earlier algorithm aimed at a harder object — a thought rather than a
+query. The contribution is the bridge between the parser and the coordinator: a name for
+*reasoning*, computed deterministically from a parse, before the expensive step begins. What
+we are about to tell you is that this bridge holds — under measurement, and against real
+agents' stubborn habit of disagreeing on how to say the same thing.
 
 ## WHAT WE WILL TELL YOU
 
@@ -84,9 +96,10 @@ becomes the owner) or hands back the future of one already in progress (the aske
 follower and simply waits). Every follower attaches to the same future, so one execution
 serves every demand. Failure cannot silently strand anyone: rejection flows down the chain,
 and each waiting follower sees it and re-enters the claim on its own, so any one of them may
-take over the work. The point is not that promises are novel — they are not — but that they
-reduce the whole coordination problem to two states a programmer can hold at once: *working*
-and *waiting*.
+take over the work. The promise *primitive* is old — futures and deferreds long predate this
+work — but the single-flight coordination built on them is the earlier paper's contribution,
+and it reduces the whole coordination problem to two states a programmer can hold at once:
+*working* and *waiting*.
 
 That reduction only works, however, when the work has a name the parties can agree on. The
 database query names itself by hashing its text. The build artifact names itself by its
@@ -301,6 +314,35 @@ it deduplicates callers who overlap in time, and a later, sequential caller reco
 unless a retention policy is chosen, a one-line change whose effect is reported in the
 evidence.
 
+## THE SHAPES OF SHARING
+
+"Shared work" is one phrase covering several different shapes, and the mechanism treats them
+differently only in how a key comes to be held in common. It is worth naming the shapes,
+because a person or a model holding the tool needs to know which one it is looking at, and
+which of them are already guaranteed rather than merely hoped for.
+
+A *chain* of segments is work that flows: segment two's input is segment one's output, so the
+second name is computed from the first's result. The fragment-prefix identity makes this
+automatic — every step of a chain is itself a prefix of the longer one, so a coherent flow is
+one path through a tree of prefixes, and two agents walking the same path share every segment
+on it, not merely the last. A chain deduplicates with no extra bookkeeping, because the name
+already records *where in the chain* the segment sits.
+
+A *disconnected* shared segment is the same unit reached from two different places with no
+causal link between the arrivals — two agents independently extracting the same symbol list,
+or re-deriving the same assumption. This is the case the collision experiments measured, and
+it is the purest test of the schema: the key is the only thing that decides, and it fires when
+the schema pins the findings to one string.
+
+A *sub-segment* is a shared piece *inside* a broader flow — a step that recurs across flows
+that are otherwise different, the way a "reconstruct the story so far" step recurs inside every
+chapter of a branching narrative. The prefix identity already makes a sub-segment nameable —
+any prefix of any ordered fragment set is itself a valid key — so the mechanism *carries*
+sub-segments for free. What it does not yet do is *notice* them for you: surfacing the common
+prefixes across many distinct flows — the shared core that keeps reappearing — is an analysis
+of the trace of keys, and it is one of the things this paper has not yet measured. Naming the
+shapes is the first step toward measuring which of them a real workload actually produces.
+
 ## WHEN DOES THIS FIRE?
 
 A mechanism that works when forced is only useful if we can say when it fires on its own.
@@ -437,12 +479,29 @@ number still worth measuring.
 Four limits are worth naming, because a mechanism proven once is not yet a claim that a
 swarm collides often.
 
-The first is the *rate at which shared work repeats*. Everything above is a handful of agents
-— four, then six, then six more on six different SQLAlchemy issues — on a few corpora, with a
-schema either imposed or withheld deliberately. The cross-task probe settled the easy part:
-different tasks do not share, and that is out of scope, not a gap. What remains unmeasured is
-the harder part — how often a broad shared ask, the same codebase read and re-read by many
-agents, repeats the same piece of reasoning — because that is where the saving actually lives.
+The first is the *rate at which shared work repeats* — the number a deployment actually needs,
+and the one the rest of this paper deliberately stops short of. Everything above is a handful
+of agents — four, then six, then six more on six different SQLAlchemy issues — on a few
+corpora, with a schema either imposed or withheld deliberately. The cross-task probe settled
+the easy part: different tasks do not share, and that is out of scope, not a gap. What remains
+unmeasured is the harder part — how often a broad shared ask, the same codebase read and
+re-read by many agents, repeats the same piece of reasoning — because that is where the saving
+actually lives.
+
+That missing number has a name worth giving it: the *segment allowance*, the fraction of a
+swarm's segments that would be repeats. Two complementary routes measure it, and both are cheap
+because the key is already computed for free. The first is empirical: log every segment key a
+real run produces and count — total segments, distinct segments, and how many appear twice,
+three times, k times — turning the collision rate into a measured histogram. The second is
+analytic: the measured shape so far is a small shared core everyone hits plus a long tail of
+divergence, the signature of a heavy-tailed distribution over segments, and under that model
+the expected repeat count is a closed form in the tail exponent and the swarm size — a
+prediction of the dedup fraction *before* the swarm is paid to run. Three candidate workloads
+would stress the model three ways: a parallel sweep of a real issue list (SQLAlchemy), a shared
+generative task whose segments are prose that must stay consistent (a choose-your-own-adventure
+tree), and a repeat-heavy harness where agents re-run the same UI interactions. Each is
+specified in the companion measurement plan; the point here is that the missing number has
+stopped being a blind spot and become a routine measurement the system can take on itself.
 
 The second is the *cross-process* boundary. Every result here is in-flight within one process;
 the distributed form (a Redis-backed coordinator, already ported) has not been exercised, and
