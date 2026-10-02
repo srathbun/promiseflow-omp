@@ -7,6 +7,11 @@
 // repo's Strawberry-Perl worker).
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+// Repo root (extensions/pf-coordinator/experiments/ → up three levels).
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 export type ParseStatus = "VALID" | "AMBIGUOUS" | "INVALID";
 
@@ -32,7 +37,10 @@ function perlPath(): string {
 }
 
 function workerScript(): string {
-  return process.env.MARP_WORKER ?? "F:/aristotle/worker/marpa-worker.pl";
+  if (process.env.MARP_WORKER) return process.env.MARP_WORKER;
+  // The Marpa worker ships with the sibling `aristotle` repo; the two are normally
+  // cloned side by side. `MARP_WORKER` overrides for any other layout.
+  return join(repoRoot, "..", "aristotle", "worker", "marpa-worker.pl");
 }
 
 const REQUEST_TIMEOUT_MS = 30_000;

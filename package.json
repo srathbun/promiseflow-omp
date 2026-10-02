@@ -5,6 +5,10 @@
   "type": "module",
   "description": "omp extension bundling a TypeScript port of promiseflow (promise-based single-flight coordination) with Redis-backed distributed coordination.",
   "license": "MIT",
+  "engines": {
+    "node": ">=22",
+    "bun": ">=1.1"
+  },
   "omp": {
     "extensions": ["./extensions/pf-coordinator/index.ts"]
   },
