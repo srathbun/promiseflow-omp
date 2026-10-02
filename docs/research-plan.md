@@ -180,11 +180,29 @@ W2 follow, because they extend the *shape* rather than the machinery.
 | Per-step variant (`parseSegmentSteps`) | ✅ built — keys `(grammar,[step])`, capturing the disconnected sharing the prefix identity misses |
 | Sub-segment noticing (`recurringSubsegments`) | ✅ built — contiguous shared runs at any position, not just from the start |
 | Method B — forecast (`segment-allowance.ts` `forecastCollision`) | ✅ built + unit-tested; caveat: i.i.d. ceiling over-predicts structured flows |
-| W1 SQLAlchemy sweep | ⬜ harness ready, **not executed** (needs live model-backed agents + an issue corpus) |
+| W1 SQLAlchemy sweep | ✅ **executed** — 5 agents over 5 real issues (results below) |
 | W2 choose-your-own-adventure | ⬜ **not executed** (needs a shared prose grammar + agents) |
 | W3 UI test repetition | ⬜ **not executed** (needs a UI harness) |
 
-The three workload probes (W1–W3) remain `[not executed]`: they each need live model-backed
-agents driving the tools against a real corpus or harness, which is compute, not code. The trace,
-splitter, per-step variant, retention, and Redis coordinator built so far are precisely the
-harness W1–W3 require, so the gap is a runnable workload, not a missing mechanism.
+The two remaining workload probes (W2, W3) still need live model-backed agents driving the tools
+against a real corpus or harness — compute, not code. W1 ran against the built harness.
+
+### W1 result — measured
+
+Five independent agents extracted finding-symbols under the shared schema (`w1-findings.json`,
+`sqlalchemy-sweep.ts`): two on issue #13497 (focused), one each on three SQL Server reflection
+issues (#10504, #8035, #7415), plus the two saved reference extractions (#13497, #13570).
+
+| config | flows | whole-turn collision | per-symbol collision | shared core |
+|---|---|---|---|---|
+| disjoint (#13497 reflection vs #13570 pool) | 2 | 0.00 | **0.03** | `create_engine` only |
+| clustered (4 SQL Server reflection issues) | 4 | 0.00 | **0.36** | `MetaData`, `Table`, `create_engine`, `sys` (all 4) + the reflection machinery (`get_columns`, `reflect_table`, `identity_columns`, `is_identity`, `seed_value`, `_switch_db`, `_execute_on_connection`, …) |
+| focused (3 agents on #13497) | 3 | 0.00 | **0.55** | the 19-symbol bug core (`Column…` `sys`) shared by all three; divergence only in reproduction-code locals (`d2`, `t`, `tm`, `pyodbc`, `exec_driver_sql`, …) |
+
+Reading: whole-turn (ordered full-list) dedup is **0 everywhere** — no two agents byte-converged,
+so the coordinator keyed on the full list would coalesce nothing here. The saving lives at the
+*per-symbol/per-step* level, where the collision rate tracks overlap cleanly: ~0 for different
+subsystems, ~0.36 within one subsystem, ~0.55 for the same issue. The three focused agents agreed
+on exactly the 19-symbol reference core and diverged only on the boundary — a measured N=3/N=4
+reproduction of the paper's "shared core, divergent boundary." This is precisely the case the
+`parseSegmentSteps` per-step variant captures and the whole-turn key does not.
