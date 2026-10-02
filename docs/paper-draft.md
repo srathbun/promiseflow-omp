@@ -381,6 +381,15 @@ be quoted as "one subagent continuation carried a ~16.7k-token prompt (521 uncac
 a general cost of the mechanism. The 600-token early guess was our own mistake, and the next
 section says so.
 
+One cost the ledger now tracks but had not: *authoring the grammar*. The grammar the loop
+reworks is not inherited — the model writes and rewrites the SLIF source itself, and that
+source is LLM output. Both surfaces now measure it (`grammar_author_tokens` on `reason`
+`create`/`extend`, and `grammarAuthorTokens` on a non-shipped `grammar` argument; a single
+chars/4 estimate), so a run's net saving is `skipped continuations − authoring spend`, and the
+authoring setup must be amortized across followers before the mechanism is a net win. The
+shipped finding grammars cost zero on that ledger; only a grammar the model actually authors
+is charged.
+
 **Collision rate — anecdotal, from two reference-extraction runs.** These are a different
 four agents from the convergence pilot, given a literature-retrieval task instead of a
 bug-finding one. In the schema-shared run, four extractors made twenty-five reference-requests

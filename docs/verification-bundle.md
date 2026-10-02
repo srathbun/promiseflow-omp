@@ -345,8 +345,10 @@ was the eval kernel's real `completion()` (a oneshot LLM). Measured (final clean
 | parse argTokens / resultTokens | 174 / 1170 | 198 / 363 |
 | reason: requests / llmCalls / skippedLlmCalls | 3 / 1 / 2 | 3 / 1 / 2 |
 | reason promptTokens / outputTokens | 75 / 490 | 84 / 422 |
+| grammar authoring tokens (shipped grammar → 0) | 0 | 0 |
 | **tokens spent (estimate)** | ~1909 | ~1067 |
 | **tokens saved (estimate)** | ~1130 | ~1012 |
+| **net tokens saved (saved − authoring)** | ~1130 | ~1012 |
 
 Diagnoses (truncated in capture, both correct):
 - #13497 → *"the MSSQL dialect doesn't properly handle fractional-seconds precision (scale) when reflecting `TIME`/`DATETIME2`…"*
@@ -355,6 +357,14 @@ Diagnoses (truncated in capture, both correct):
 The `reason` step's skip is the token saving: `skippedLlmCalls × (promptTokens +
 outputTokens)`. `parse` dedup contributes compute savings but zero LLM tokens (every
 caller still emits args + reads the result regardless of owner/follower).
+
+**Grammar-authoring cost (added after external review).** Both surfaces now also track how
+much the LLM spent *writing* the grammar: the Aristotle `reason` tool charges `create`/`extend`
+carrying a `grammar` string into `grammar_author_tokens` (chars/4), and the segment path charges
+a non-shipped `grammar` argument into `grammarAuthorTokens` once per distinct source. The
+scenarios above use the shipped `TYPED_GRAMMAR`, so authoring is 0 and net = saved; a run where
+the model authors its own grammar subtracts that one-time spend from `skippedLlmCalls × turn`.
+`runScenario` reports both `grammarAuthorTokens` and `netTokensSaved`.
 
 ---
 

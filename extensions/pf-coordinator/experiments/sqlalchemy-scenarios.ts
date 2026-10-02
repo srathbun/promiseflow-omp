@@ -11,6 +11,7 @@ import {
   coordinatedReason,
   segmentStats,
   reasonCounts,
+  grammarAuthoringCosts,
   TYPED_GRAMMAR,
 } from "./parse-segment.ts";
 
@@ -54,6 +55,10 @@ export interface ScenarioLedger {
   reason: { requests: number; llmCalls: number; skippedLlmCalls: number; promptTokens: number; outputTokens: number };
   totalTokensSpent: number;
   totalTokensSaved: number;
+  /** One-time setup cost: estimated tokens the LLM spent authoring a custom grammar (0 for shipped). */
+  grammarAuthorTokens: number;
+  /** `totalTokensSaved − grammarAuthorTokens`: dedup savings net of the authoring spend. */
+  netTokensSaved: number;
   /** The shared LLM continuation (identical for every caller). */
   diagnosis: string;
 }
@@ -71,6 +76,7 @@ export async function runScenario(
 ): Promise<ScenarioLedger> {
   const parseBefore = segmentStats();
   const reasonBefore = reasonCounts();
+  const authoringBefore = grammarAuthoringCosts();
   const promptText = `${scenario.question}\n\nFindings:\n${scenario.findings.join("\n")}`;
 
   const p = Promise.withResolvers<void>();
@@ -86,10 +92,12 @@ export async function runScenario(
 
   const parseAfter = segmentStats();
   const reasonAfter = reasonCounts();
+  const authoringAfter = grammarAuthoringCosts();
 
   const promptTokens = estimateTokens(promptText);
   const outputTokens = estimateTokens(reasons[0]?.output ?? "");
   const perTurnTokens = promptTokens + outputTokens;
+  const grammarAuthorTokens = authoringAfter.tokens - authoringBefore.tokens;
 
   // `followers` is driven by the SHARED coordinator hooks (both steps), so parse
   // skip count is derived from parse-only counters: requests − executions.
@@ -118,6 +126,8 @@ export async function runScenario(
     reason: reasonDelta,
     totalTokensSpent: parseDelta.argTokens + parseDelta.resultTokens + reasonDelta.llmCalls * perTurnTokens,
     totalTokensSaved: reasonDelta.skippedLlmCalls * perTurnTokens,
+    grammarAuthorTokens,
+    netTokensSaved: reasonDelta.skippedLlmCalls * perTurnTokens - grammarAuthorTokens,
     diagnosis: reasons[0]?.output ?? "",
   };
 }

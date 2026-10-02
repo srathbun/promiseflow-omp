@@ -9,6 +9,8 @@ import {
   TYPED_GRAMMAR,
   coordinatedReason,
   dedupSavings,
+  estimateTokens,
+  grammarAuthoringCosts,
   parseSegment,
   reasonCounts,
   segmentStats,
@@ -213,4 +215,61 @@ test("coordinatedReason: same findings+prompt, different grammars → no collaps
   expect(after.llmCalls - before.llmCalls).toBe(2);
   expect(after.skippedLlmCalls - before.skippedLlmCalls).toBe(0);
   expect(calls).toBe(2);
+});
+
+test("grammar authoring: shipped grammars are free; a model-authored grammar is charged once", async () => {
+  const before = grammarAuthoringCosts();
+
+  // Shipped grammars are pre-authored in code — they cost the model nothing here.
+  await parseSegment(DEFAULT_GRAMMAR, ["a b c"]);
+  await parseSegment(TYPED_GRAMMAR, ["DATETIME2", "Column"]);
+  expect(grammarAuthoringCosts().events).toBe(before.events);
+  expect(grammarAuthoringCosts().tokens).toBe(before.tokens);
+
+  // A grammar the model actually wrote (not one of the defaults) is a one-time
+  // output-token cost, measured by the chars/4 heuristic.
+  const authored = [
+    ":default ::= action => ::array",
+    ":start ::= doc",
+    "doc ::= marker+",
+    "marker ::= word",
+    "word ~ [A-Za-z]+",
+    ":discard ~ whitespace",
+    "whitespace ~ [\\s]+",
+  ].join("\n");
+
+  const first = await parseSegment(authored, ["hello"]);
+  const afterFirst = grammarAuthoringCosts();
+  const expected = estimateTokens(authored);
+  expect(afterFirst.events).toBe(before.events + 1);
+  expect(afterFirst.tokens).toBe(before.tokens + expected);
+  expect(first.grammarAuthorTokens).toBe(afterFirst.tokens);
+
+  // Reusing the SAME authored grammar does not re-charge it (author once, share many).
+  await parseSegment(authored, ["world"]);
+  const afterSecond = grammarAuthoringCosts();
+  expect(afterSecond.events).toBe(afterFirst.events);
+  expect(afterSecond.tokens).toBe(afterFirst.tokens);
+
+  // The derived savings view surfaces the one-time setup cost explicitly.
+  expect(dedupSavings().grammarAuthorTokens).toBe(afterSecond.tokens);
+});
+
+test("coordinatedReason charges a model-authored grammar as a one-time authoring cost", async () => {
+  const before = reasonCounts();
+  const authored = [
+    ":default ::= action => ::array",
+    ":start ::= doc",
+    "doc ::= word+",
+    "word ~ [A-Za-z]+",
+    ":discard ~ ws",
+    "ws ~ [\\s]+",
+  ].join("\n");
+  const generate = async (): Promise<string> => "derived";
+
+  const r = await coordinatedReason(authored, ["a"], "What next?", generate);
+  const after = reasonCounts();
+
+  expect(after.grammarAuthorTokens - before.grammarAuthorTokens).toBe(estimateTokens(authored));
+  expect(r.grammarAuthorTokens).toBe(after.grammarAuthorTokens);
 });

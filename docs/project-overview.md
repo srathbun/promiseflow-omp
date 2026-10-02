@@ -102,6 +102,7 @@ Pre-existing (inherited): the `reason` tool and Marpa worker in Aristotle; the P
 - **Schema-free collision run** — 4 extractors, no shared schema: mechanical collision 0.08 vs conceptual 0.67 (same 4 works at the core). The gap is the schema's measured contribution; one agent derailed and returned no list. Reported in § "Collision rate", now a two-sided anecdote rather than schema-bound-only.
 - **TTL retention demo** — Ephemeral 2→2 executions; `Ttl(60)` 2→1 (sequential second caller skips). Backs the "When does this fire?" retention clause.
 - **Paper draft restructured** after external review — Purpose block, related work moved up, preconditions section, system figure, tiered evidence.
+- **Grammar-authoring cost instrumented** (post external-review punch item): the LLM's spend *writing* the grammar is now measured — Aristotle `reason` `create`/`extend` charges `grammar_author_tokens`, and the segment path charges a non-shipped `grammar` arg into `grammarAuthorTokens` (once per distinct source, chars/4). `runScenario` reports `grammarAuthorTokens` and `netTokensSaved = saved − authoring`, so the paper's net-savings claim is stated against the one-time authoring setup the savings must clear.
 
 **Still open (in paper-priority order):**
 

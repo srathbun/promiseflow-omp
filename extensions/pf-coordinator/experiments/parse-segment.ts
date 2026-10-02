@@ -79,6 +79,8 @@ export interface SegmentResult {
   parse: ParseOnceResult;
   /** Post-call snapshot of the process-wide counters. */
   stats: SegmentStats;
+  /** Cumulative estimated LLM tokens spent authoring grammars (see `grammarAuthoringCosts`). */
+  grammarAuthorTokens: number;
 }
 
 const stats: SegmentStats = { requests: 0, owners: 0, followers: 0, executions: 0, computeMs: 0, argTokens: 0, resultTokens: 0 };
@@ -96,6 +98,41 @@ const coordinator = new Coordinator({
 });
 
 const client = new MarpaParseClient();
+
+// ---------------------------------------------------------------------------
+// Grammar-authoring cost. The model does not inherit a grammar for free: in the
+// authoring loop (Aristotle `create`/`extend`, or a `grammar` arg here) it writes
+// and rewrites the SLIF source itself, and that text is LLM output tokens — a
+// one-time setup cost the dedup savings must be net of. The shipped defaults
+// (DEFAULT_GRAMMAR / TYPED_GRAMMAR) cost nothing here; any other grammar source is
+// treated as model-authored and charged ONCE per distinct text (a second caller
+// reusing the same grammar has already paid for it).
+// ---------------------------------------------------------------------------
+
+const authoredGrammars = new Set<string>();
+const grammarAuthoring = { events: 0, tokens: 0 };
+
+/** Charge a one-time authoring cost for a distinct, model-authored grammar source. */
+function recordGrammarAuthoring(grammar: string): void {
+  if (grammar === DEFAULT_GRAMMAR || grammar === TYPED_GRAMMAR) return;
+  if (authoredGrammars.has(grammar)) return;
+  authoredGrammars.add(grammar);
+  grammarAuthoring.events += 1;
+  grammarAuthoring.tokens += estimateTokens(grammar);
+}
+
+/** Cumulative grammar-authoring cost: distinct authoring events and their estimated tokens. */
+export interface GrammarAuthoringCost {
+  /** Distinct non-shipped grammar sources the LLM authored (create/extend/arg). */
+  events: number;
+  /** Estimated LLM output tokens spent authoring those grammars. */
+  tokens: number;
+}
+
+/** One-time grammar-authoring cost, the setup spend the dedup savings must clear. */
+export function grammarAuthoringCosts(): GrammarAuthoringCost {
+  return { events: grammarAuthoring.events, tokens: grammarAuthoring.tokens };
+}
 
 function snapshot(): SegmentStats {
   return {
@@ -139,6 +176,11 @@ export interface DedupSavings {
    * Becomes nonzero once the shared segment is an LLM-backed step.
    */
   skippedTokens: number;
+  /**
+   * One-time setup cost: estimated LLM tokens the model spent AUTHORING a non-
+   * shipped grammar source. Dedup savings must clear this before they are net.
+   */
+  grammarAuthorTokens: number;
 }
 
 /**
@@ -161,6 +203,7 @@ export function dedupSavings(): DedupSavings {
     resultTokens: s.resultTokens,
     totalTokens: s.argTokens + s.resultTokens,
     skippedTokens: 0,
+    grammarAuthorTokens: grammarAuthoring.tokens,
   };
 }
 
@@ -201,7 +244,8 @@ export function parseSegment(grammar: string, fragments: string[]): Promise<Segm
       stats.requests += 1;
       stats.argTokens += argTokens;
       stats.resultTokens += estimateTokens(renderSegment(key, parse, stats));
-      return { key, parse, stats: snapshot() };
+      recordGrammarAuthoring(grammar);
+      return { key, parse, stats: snapshot(), grammarAuthorTokens: grammarAuthoring.tokens };
     });
 }
 
@@ -235,6 +279,8 @@ export interface ReasonResult {
   /** Cumulative REAL provider input/output tokens of the LLM continuations run. */
   llmInputTokens: number;
   llmOutputTokens: number;
+  /** Cumulative estimated LLM tokens spent authoring grammars (setup cost). */
+  grammarAuthorTokens: number;
 }
 
 /** A coordinate-able LLM continuation step. Omit `usage` for a string-only provider. */
@@ -273,6 +319,7 @@ export function coordinatedReason(
     })
     .then((output) => {
       reasonRequests.count += 1;
+      recordGrammarAuthoring(grammar);
       return {
         key,
         output,
@@ -280,6 +327,7 @@ export function coordinatedReason(
         skippedLlmCalls: reasonRequests.count - llmExecutions.count,
         llmInputTokens: llmTokens.input,
         llmOutputTokens: llmTokens.output,
+        grammarAuthorTokens: grammarAuthoring.tokens,
       };
     });
 }
@@ -291,6 +339,7 @@ export function reasonCounts(): {
   skippedLlmCalls: number;
   inputTokens: number;
   outputTokens: number;
+  grammarAuthorTokens: number;
 } {
   return {
     requests: reasonRequests.count,
@@ -298,5 +347,6 @@ export function reasonCounts(): {
     skippedLlmCalls: reasonRequests.count - llmExecutions.count,
     inputTokens: llmTokens.input,
     outputTokens: llmTokens.output,
+    grammarAuthorTokens: grammarAuthoring.tokens,
   };
 }
