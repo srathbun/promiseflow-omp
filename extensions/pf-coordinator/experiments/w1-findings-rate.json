@@ -1,0 +1,10 @@
+[
+  { "issue": "#13570", "agent": "A", "findings": ["Connection","PoolProxiedConnection","_ConnectionFairy","_ConnectionRecord","_checkin","_close_connection","_finalize_fairy","connection_record","detach","fairy_ref","get_raw_connection","raw_connection","reset"] },
+  { "issue": "#13570", "agent": "B", "findings": ["Connection","PoolProxiedConnection","_ConnectionFairy","_ConnectionRecord","_checkin","_close_connection","_finalize_fairy","connection_record","detach","fairy_ref","finalize","raw_connection","weakref"] },
+  { "issue": "#10504", "agent": "A", "findings": ["NUMERIC","NVARCHAR","_autoload","_default_multi_reflect","_get_reflection_info","_switch_db","bigint","get_columns","get_multi_columns","increment_value","numeric","precision","reflect_table","seed_value"] },
+  { "issue": "#10504", "agent": "B", "findings": ["NUMERIC","NVARCHAR","Table","_default_multi_reflect","_get_reflection_info","_switch_db","bigint","get_columns","increment_value","numeric","precision","reflect_table","seed_value"] },
+  { "issue": "#8035", "agent": "A", "findings": ["MetaData","NVARCHAR","Table","URL","_owner_plus_db","_switch_db","collation_name","create_engine","get_columns","reflect_table"] },
+  { "issue": "#8035", "agent": "B", "findings": ["MetaData","NVARCHAR","Table","_owner_plus_db","_switch_db","collation_name","get_columns","inspect","reflect_table"] },
+  { "issue": "#7415", "agent": "A", "findings": ["MetaData","NVARCHAR","Table","_owner_plus_db","_reflect_indexes","_switch_db","create_engine","filter_definition","get_indexes","index_id","is_included_column","is_primary_key","is_unique","reflect","reflect_table","type"] },
+  { "issue": "#7415", "agent": "B", "findings": ["MetaData","NVARCHAR","Table","VARCHAR","_autoload","_init","_owner_plus_db","_reflect_indexes","_switch_db","filter_definition","get_indexes","index_id","is_included_column","is_primary_key","is_unique","reflect","reflect_table"] }
+]

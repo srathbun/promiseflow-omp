@@ -222,3 +222,23 @@ and lowercase. Because the segment key hashes the *ordered* list, a sort rule th
 ambiguous is itself a convergence killer. The anchor for the savings-model's `convergence`
 parameter is now measured: **0 under a loose schema, ~0.67 (byte) to 1.0 (set) under a strict one**
 — and the residual gap is fixable by pinning the lexicographic rule to raw byte order.
+
+**Scaling the convergence rate (5 issues, 11 agents).** The focused 2/3 was not representative: it was
+one issue whose symbol vocabulary is crisp. Running the same strict schema across 5 real issues and
+11 agents, pooled by a pairwise reporter (`convergence-rate.ts`, `w1-findings-rate.json`):
+
+| metric | value |
+|---|---|
+| pairwise byte-identical | **1/7 (14%)** |
+| pairwise set-identical | **3/7 (43%)** |
+| full-group byte-identical | 0/5 |
+| full-group set-identical | 1/5 |
+
+Because the explicit raw-byte sort rule was now followed, the residual divergence is the *symbol set*
+(which boundary identifiers to include), not ordering. Reading: the segment key dedups on byte-
+identical ordered lists, so the relevant convergence for the savings model is ~14%, not the 67% the
+single-issue run suggested. The mechanism fires on roughly one in seven redundant doings under a
+generic strict schema — low, and the honest answer to "is it worth it." The one issue that did
+converge (#13497) is the case where a task-specific vocabulary is crisp; whether a model-authored,
+per-task schema can drive that rate toward 1.0 at scale — and at what authoring cost — is now the
+precise open question, and it is a schema-authoring question, not a token question.
