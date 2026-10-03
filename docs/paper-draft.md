@@ -502,7 +502,9 @@ from 0 percent in the opening turns to 30 percent by the end — the 26-symbol c
 otherwise differ. (An offline reconstruction of the first run's recorded trail had estimated 36
 percent; the live number sits in the same band, now observed rather than computed.) Priced at the
 fresh per-continuation cost — the only honest one, per the cost section — the 35 skips are about
-46,000 tokens avoided for three agents on one subsystem. One subsystem and three agents is a point,
+46,000 tokens avoided for three agents on one subsystem; the run used a shipped, pre-authored
+grammar, so authoring spend was zero and the figure is net of authoring, not gross. One subsystem
+and three agents is a point,
 not a curve; but it is a first point that runs from repeated reasoning to a live token count, and it
 locates the benefit in the length of the task rather than the tightness of a one-shot schema.
 
