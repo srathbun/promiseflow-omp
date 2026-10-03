@@ -325,3 +325,13 @@ A one-shot probe sees ~1 shared symbol (the turn-0 floor); the full ~30-turn tas
 is the missing interaction: convergence *emerges over turns* as code-grounded agents re-engage the
 same component, and it is invisible to the short, static extraction probes that measured 33%. The
 hypothesis holds at first approximation — the value is in the long horizon, not the schema.
+
+**Marpa-loop confirmation (real keys + savings).** Feeding the three agents' engaged symbols
+through the actual Marpa worker + coordinator + TTL cache (`marpa-loop.ts`) closes the caveat — the
+symbol convergence is real segment-key dedup, not set math. 81 engagements collapse to 52 distinct
+keys (36% collision), with 29 cache hits where a later agent reused an earlier agent's completed
+segment, and an occurrence histogram of `1×26 / 2×23 / 3×3`. On the shared temporal core the loop is
+live: the loose `finding+` grammar is ambiguous, the refined `temporal | marker` grammar is the
+structured 2^5 = 32. Gross savings ≈ 29 redundant units → ~38k (fresh) to ~484k (cache-inclusive)
+tokens for a three-agent, ~103-turn subsystem task — small in absolute terms because the sample is
+one subsystem and three agents, but the mechanism now has real key-level numbers, not a proxy.
