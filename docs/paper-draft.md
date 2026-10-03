@@ -415,6 +415,16 @@ right* distinction — held only when the prompt named it, and by accident of sp
 four unaided runs. That split is recorded in the limits as the authoring result's real
 dependence.
 
+Re-run live inside the fused loop, the authoring reproduces its numbers end to end: the naive
+grammar reports 262,144 readings, the model is handed the hint, and the grammar it writes back —
+`temporal | marker`, accepted by Marpa and advancing the version — reparses the same nineteen
+findings to exactly 32. The re-run sharpens *which part* of the hint carries the weight: told only
+to mark the temporal kind, a capable model keeps the naive grammar's nested list and lands at 512,
+not 32; it reaches the bounded form only when it is also told to flatten the finding into a single
+typed alternative. It is the regrouping, not the type distinction, that the model does not undo on
+its own. Authoring works, and it is hint-dependent in a specific, nameable place — the move from "a
+list of items" to "one typed finding."
+
 **Cost — the weakest number, stated carefully.** The 16.5k figure in the summary —
 "worth roughly sixteen-and-a-half thousand prompt tokens once cached context is counted" —
 counts *cached* context: 521 uncached input tokens and 794 output, riding on about 16,640
@@ -498,7 +508,7 @@ locates the benefit in the length of the task rather than the tightness of a one
 
 ## WHAT WE HAVE NOT DONE
 
-Four limits are worth naming, because a mechanism proven once is not yet a claim that a
+Six limits are worth naming, because a mechanism proven once is not yet a claim that a
 swarm collides often.
 
 The first is the *rate at which shared work repeats* — the number a deployment actually needs,
@@ -549,8 +559,10 @@ claim is scoped to exactly that.
 
 The sixth is the *hint in the prompt*. The strongest trace — "mark the temporal kind, see
 262,144, refactor to temporal versus generic, see 32" — was aided by a prompt that told the
-model what to look for. It is a real trace of the loop running; it is not evidence that the
-model discovers the distinction unprompted.
+model what to look for; the live re-run shows the load is carried by the *structural* half, the
+instruction to flatten a nested list of items into one typed finding, not merely by naming the
+temporal kind. It is a real trace of the loop running; it is not evidence that the model
+discovers the distinction unprompted.
 
 ## CONCLUSION
 
@@ -568,7 +580,11 @@ collapses to one execution — in our run, a single subagent continuation carrie
 16.7k-token prompt, counted cache-inclusive. The parser's ambiguity count is structured and
 meaningful when the grammar is, and exponential noise when it is not, and the model is the
 one who rewrites the noisy grammar into the bounded one — in every run recorded here — though
-which bound it lands on depends on what the prompt tells it to look for. What is measured and
+which bound it lands on depends on what the prompt tells it to look for. The two loops have now
+run fused and live in one system rather than as separate tiers: the authoring loop — naive
+grammar, 262,144 readings, the model's `temporal | marker` back down to 32 — feeding the
+coordinator that deduplicated 35 of 118 continuations keyed on that grammar. The authoring carries
+the one name-specific dependence described above; the coordination does not. What is measured and
 what is not stays separate: the mechanism is proven, and one real multi-turn task now gives a
 first live point on the rate at which shared work repeats — a 30-percent collision climbing over
 153 turns, observed as the coordinator ran — while turning that point into a distribution for a
