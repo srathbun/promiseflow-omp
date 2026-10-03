@@ -485,11 +485,14 @@ Server reflection subsystem (identity seed, precision, temporary-table collation
 across a genuine edit loop — and recorded, in engagement order, the component symbols each touched:
 52 distinct symbols in all, *half* — 26 — engaged by at least two agents, a core that accumulated
 rather than appearing at once (one shared symbol by the first turn, 25 by the thirtieth, across 103
-turns). That recorded trail is then *replayed* through the coordinator and Marpa worker to compute
-what the collision would have been — a retrospective rate, not a live contention claim (the live-
-contention result is the Mechanism tier above). The replay collapses 81 engagements to 52 distinct
-keys, a 36% collision with 29 redundant, and it is the *sub-segment* shape the shapes section names:
-the same component re-appearing inside flows that otherwise differ. Priced at the fresh
+turns). That recorded trail is *replayed* through the coordinator to compute what the collision would have
+been — 81 engagements collapse to 52 distinct keys, a 36% collision with 29 redundant — and then
+*confirmed live*: the same 81 engagements fired concurrently through the coordinator against a real
+local model, which executed 52 continuations and skipped 29, the skip count now observed in real
+time rather than reconstructed. (That is coordinator dedup under live load; the agent emitting its
+own in-loop segments remains the open loop-surface point below.) The 26-symbol shared core is the
+*sub-segment* shape the shapes section names: the same component re-appearing inside flows that
+otherwise differ. Priced at the fresh
 per-continuation cost — the only honest one, per the cost section — that is about 38,000 tokens
 avoided for three agents on one subsystem. One subsystem and three agents is a point, not a curve;
 but it is a first point that runs from repeated reasoning to a token count, and it locates the
