@@ -475,28 +475,26 @@ but "when a broad ask splits one piece of reasoning across many agents, how much
 section, and the rate at which real shared asks repeat the same piece is the one prevalence
 number still worth measuring.
 
-**Long-horizon sharing — a retrospective collision rate, one subsystem.** Everything above is a
-single turn: an agent extracts a finding list once, under a frozen schema, and we ask whether two
-agents matched. That is the wrong regime for the claim the mechanism actually makes, which is that
-convergence accumulates over many turns as code-grounded agents re-engage the same component — the
-schema is grown, not written once, and only where a problem reaches for it. To see the horizon we
-ran three agents over a real code task — each implementing overlapping fixes in the SQLAlchemy SQL
-Server reflection subsystem (identity seed, precision, temporary-table collation, a reflection hang)
-across a genuine edit loop — and recorded, in engagement order, the component symbols each touched:
-52 distinct symbols in all, *half* — 26 — engaged by at least two agents, a core that accumulated
-rather than appearing at once (one shared symbol by the first turn, 25 by the thirtieth, across 103
-turns). That recorded trail is *replayed* through the coordinator to compute what the collision would have
-been — 81 engagements collapse to 52 distinct keys, a 36% collision with 29 redundant — and then
-*run end-to-end live*: three agents doing the fix task with a segment sink wired into their loop
-emitted 118 segments over 153 turns, and the coordinator — running a real model — executed 83
-continuations and skipped 35, the collision observed to climb from 0 percent in the opening turns
-to 30 percent by the end as the shared component re-engaged. The 26-symbol shared core is the
+**Long-horizon sharing — live, one subsystem.** Everything above is a single turn: an agent
+extracts a finding list once, under a frozen schema, and we ask whether two agents matched. That is
+the wrong regime for the claim the mechanism actually makes, which is that convergence accumulates
+over many turns as code-grounded agents re-engage the same component — the schema is grown, not
+written once, and only where a problem reaches for it. To see the horizon we ran three agents over
+a real code task — each implementing overlapping fixes in the SQLAlchemy SQL Server reflection
+subsystem (identity seed, precision, temporary-table collation, a reflection hang) across a genuine
+edit loop, with the segment coordinator wired into their loop so that each engaged symbol was
+emitted through it as the agent worked. Over 153 turns the three agents touched 52 distinct code
+symbols, *half* — 26 — engaged by at least two agents, a core that accumulated rather than appearing
+at once (one shared symbol by the first turn, 25 by the thirtieth). The coordinator, running a real
+model, executed 83 of 118 continuations and skipped 35 — a 30-percent collision, observed to climb
+from 0 percent in the opening turns to 30 percent by the end — the 26-symbol core being the
 *sub-segment* shape the shapes section names: the same component re-appearing inside flows that
-otherwise differ. Priced at the fresh
-per-continuation cost — the only honest one, per the cost section — that is about 38,000 tokens
-avoided for three agents on one subsystem. One subsystem and three agents is a point, not a curve;
-but it is a first point that runs from repeated reasoning to a token count, and it locates the
-benefit in the length of the task rather than the tightness of a one-shot schema.
+otherwise differ. (An offline reconstruction of the first run's recorded trail had estimated 36
+percent; the live number sits in the same band, now observed rather than computed.) Priced at the
+fresh per-continuation cost — the only honest one, per the cost section — the 35 skips are about
+46,000 tokens avoided for three agents on one subsystem. One subsystem and three agents is a point,
+not a curve; but it is a first point that runs from repeated reasoning to a live token count, and it
+locates the benefit in the length of the task rather than the tightness of a one-shot schema.
 
 ## WHAT WE HAVE NOT DONE
 
@@ -525,8 +523,9 @@ would stress the model three ways: a parallel sweep of a real issue list (SQLAlc
 generative task whose segments are prose that must stay consistent (a choose-your-own-adventure
 tree), and a repeat-heavy harness where agents re-run the same UI interactions. Each is
 specified in the companion measurement plan. And one number now exists in place: the
-long-horizon run reported above — three agents, one subsystem, 103 turns — is a 36% segment-key
-collision with half its engaged symbols shared. A point, not yet a curve.
+long-horizon run reported above — three agents, one subsystem, 153 turns — is a ~30-percent live
+collision (35 of 118 continuations deduplicated), observed climbing over the run rather than
+reconstructed. A point, not yet a curve.
 
 The second is the *cross-process* boundary. Every result here is in-flight within one process;
 the distributed form (a Redis-backed coordinator, already ported) has not been exercised, and
@@ -571,9 +570,9 @@ meaningful when the grammar is, and exponential noise when it is not, and the mo
 one who rewrites the noisy grammar into the bounded one — in every run recorded here — though
 which bound it lands on depends on what the prompt tells it to look for. What is measured and
 what is not stays separate: the mechanism is proven, and one real multi-turn task now gives a
-first point on the rate at which shared work repeats — a 36-percent segment collision over 103
-turns, reconstructed after the fact — while turning that point into a distribution for a real
-swarm is still open. Finding that
+first live point on the rate at which shared work repeats — a 30-percent collision climbing over
+153 turns, observed as the coordinator ran — while turning that point into a distribution for a
+real swarm is still open. Finding that
 rate is exactly the kind of work — nameable, shareable, worth doing once — that the system
 described here was built to make cheap.
 
