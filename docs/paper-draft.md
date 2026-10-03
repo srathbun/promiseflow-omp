@@ -338,10 +338,11 @@ A *sub-segment* is a shared piece *inside* a broader flow — a step that recurs
 that are otherwise different, the way a "reconstruct the story so far" step recurs inside every
 chapter of a branching narrative. The prefix identity already makes a sub-segment nameable —
 any prefix of any ordered fragment set is itself a valid key — so the mechanism *carries*
-sub-segments for free. What it does not yet do is *notice* them for you: surfacing the common
-prefixes across many distinct flows — the shared core that keeps reappearing — is an analysis
-of the trace of keys, and it is one of the things this paper has not yet measured. Naming the
-shapes is the first step toward measuring which of them a real workload actually produces.
+sub-segments for free. What it does not yet do is *notice* them for you, automatically: surfacing the
+common prefixes across many distinct flows — the shared core that keeps reappearing — is an analysis
+of the trace of keys, and it remains unimplemented. Its *prevalence*, on the other hand, is measured
+— once, on one subsystem — in the long-horizon result reported in the evidence. Naming the shapes is
+the first step toward measuring which of them a real workload actually produces.
 
 ## WHEN DOES THIS FIRE?
 
@@ -474,24 +475,25 @@ but "when a broad ask splits one piece of reasoning across many agents, how much
 section, and the rate at which real shared asks repeat the same piece is the one prevalence
 number still worth measuring.
 
-**Long-horizon sharing — measured once, on one subsystem.** Everything above is a single turn:
-an agent extracts a finding list once, under a frozen schema, and we ask whether two agents
-matched. That is the wrong regime for the claim the mechanism actually makes, which is that
-convergence accumulates over many turns as code-grounded agents re-engage the same component —
-the schema is grown, not written once, and only where a problem reaches for it. To see the
-horizon we ran three agents over a real code task: each implemented overlapping fixes in the
-SQLAlchemy SQL Server reflection subsystem (identity seed, precision, temporary-table collation,
-a reflection hang) across a genuine edit loop, with their engaged components recorded. Three
-agents, 103 turns, 52 distinct code symbols, and *half* — 26 — engaged by at least two agents;
-the shared core did not exist at once but *accumulated*, one symbol by the first turn and 25 by
-the thirtieth. Pushing those engagements through the coordinator and Marpa worker makes the
-convergence a real dedup rather than a set similarity: 81 engagements collapse to 52 distinct
-keys, a 36% collision, with 29 cache hits where a later agent reused an earlier agent's finished
-segment. At this paper's continuation cost that is roughly 38,000 fresh tokens saved — about
-484,000 with the cached prefix counted — for three agents on one subsystem. One subsystem and
-three agents is not a swarm rate; but it is the first measurement that runs the whole line from
-repeated reasoning to a token count, and it shows the benefit living exactly where the earlier
-static probes could not see it: in the length of the task, not the tightness of a one-shot schema.
+**Long-horizon sharing — a retrospective collision rate, one subsystem.** Everything above is a
+single turn: an agent extracts a finding list once, under a frozen schema, and we ask whether two
+agents matched. That is the wrong regime for the claim the mechanism actually makes, which is that
+convergence accumulates over many turns as code-grounded agents re-engage the same component — the
+schema is grown, not written once, and only where a problem reaches for it. To see the horizon we
+ran three agents over a real code task — each implementing overlapping fixes in the SQLAlchemy SQL
+Server reflection subsystem (identity seed, precision, temporary-table collation, a reflection hang)
+across a genuine edit loop — and recorded, in engagement order, the component symbols each touched:
+52 distinct symbols in all, *half* — 26 — engaged by at least two agents, a core that accumulated
+rather than appearing at once (one shared symbol by the first turn, 25 by the thirtieth, across 103
+turns). That recorded trail is then *replayed* through the coordinator and Marpa worker to compute
+what the collision would have been — a retrospective rate, not a live contention claim (the live-
+contention result is the Mechanism tier above). The replay collapses 81 engagements to 52 distinct
+keys, a 36% collision with 29 redundant, and it is the *sub-segment* shape the shapes section names:
+the same component re-appearing inside flows that otherwise differ. Priced at the fresh
+per-continuation cost — the only honest one, per the cost section — that is about 38,000 tokens
+avoided for three agents on one subsystem. One subsystem and three agents is a point, not a curve;
+but it is a first point that runs from repeated reasoning to a token count, and it locates the
+benefit in the length of the task rather than the tightness of a one-shot schema.
 
 ## WHAT WE HAVE NOT DONE
 
@@ -565,8 +567,10 @@ collapses to one execution — in our run, a single subagent continuation carrie
 meaningful when the grammar is, and exponential noise when it is not, and the model is the
 one who rewrites the noisy grammar into the bounded one — in every run recorded here — though
 which bound it lands on depends on what the prompt tells it to look for. What is measured and
-what is not stays separate: the mechanism is proven, while the rate at which a real swarm
-collides is still open. Finding that
+what is not stays separate: the mechanism is proven, and one real multi-turn task now gives a
+first point on the rate at which shared work repeats — a 36-percent segment collision over 103
+turns, reconstructed after the fact — while turning that point into a distribution for a real
+swarm is still open. Finding that
 rate is exactly the kind of work — nameable, shareable, worth doing once — that the system
 described here was built to make cheap.
 
