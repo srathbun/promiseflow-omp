@@ -183,7 +183,7 @@ W2 follow, because they extend the *shape* rather than the machinery.
 | W1 SQLAlchemy sweep | ✅ **executed** — 5 agents over 5 real issues (results below) |
 | W2 choose-your-own-adventure | ⬜ **not executed** (needs a shared prose grammar + agents) |
 | W3 UI test repetition | ⬜ **not executed** (needs a UI harness) |
-| Long-horizon convergence (multi-turn loop) | ⬜ designed, **not executed** — needs a live multi-turn grammar-refinement loop |
+| Long-horizon convergence (multi-turn loop) | ✅ **executed** — 3 fix agents over 103 turns (results below) |
 
 The remaining probes need live model-backed agents: W2/W3 against a corpus or harness, and the
 long-horizon probe against a multi-turn loop — compute, not code. W1 and the single-turn curve
@@ -272,7 +272,7 @@ grammar cannot see that, so ~1/3 is where convergence sits at turn 0, before the
 Whether convergence *rises with engagement length* is the open question, and it is the next
 measurement, not this one.
 
-### Long-horizon hypothesis & probe (not yet run)
+### Long-horizon hypothesis & probe
 
 **Hypothesis.** Byte-convergence rises with the number of turns, because the grammar is refined
 in-loop and co-walkers that hit the same ambiguity converge on the same refinement. The grammar is
@@ -289,3 +289,39 @@ convergence* — do the agents' grammars byte-converge on the shared parts? (b) 
 saturates. The prediction: collision rises over t toward the refined scope's ceiling, not the
 turn-0 floor of ~1/3. This is the loop the paper's grammar-authoring run exercised once for one
 agent; the missing number is whether it *converges across agents over a long problem*.
+
+### Long-horizon result — measured
+
+Three agents each implemented overlapping real fixes in the cloned `sqlalchemy` (identity seed,
+precision, collation, reflection hang — all in `dialects/mssql/base.py`), over a genuine multi-turn
+edit loop (`long-horizon.ts`, `long-horizon-findings.json`):
+
+| agent | turns | engaged symbols |
+|---|---|---|
+| FixA (identity + precision) | 30 | 29 |
+| FixB (precision + collation) | 46 | 30 |
+| FixC (collation + hang) | 27 | 22 |
+| **total** | **103** | 52 distinct |
+
+Cross-agent convergence on the component vocabulary: **26 of 52 symbols shared by ≥2 agents (50% of
+the union)**, with pairwise Jaccard tracking the assignment overlap (FixA∩FixB 0.31, FixB∩FixC 0.41,
+FixA∩FixC 0.06 — the unassigned pair). The shared core is exactly the reflection machinery
+(`get_multi_columns`, `_parse_column_info`, `identity_columns`, `seed_value`, `increment_value`,
+`collation_name`, `sys_columns`, `sys_schemas`, …).
+
+The decisive number is the **shared core vs. turn** — it accumulates monotonically:
+
+```
+turn  1 →  1 shared symbol
+turn  4 →  2
+turn 10 →  4
+turn 13 →  8
+turn 16 → 13
+turn 22 → 18
+turn 28 → 25
+```
+
+A one-shot probe sees ~1 shared symbol (the turn-0 floor); the full ~30-turn task reveals 25. This
+is the missing interaction: convergence *emerges over turns* as code-grounded agents re-engage the
+same component, and it is invisible to the short, static extraction probes that measured 33%. The
+hypothesis holds at first approximation — the value is in the long horizon, not the schema.
