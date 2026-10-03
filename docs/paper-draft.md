@@ -487,10 +487,10 @@ across a genuine edit loop — and recorded, in engagement order, the component 
 rather than appearing at once (one shared symbol by the first turn, 25 by the thirtieth, across 103
 turns). That recorded trail is *replayed* through the coordinator to compute what the collision would have
 been — 81 engagements collapse to 52 distinct keys, a 36% collision with 29 redundant — and then
-*confirmed live*: the same 81 engagements fired concurrently through the coordinator against a real
-local model, which executed 52 continuations and skipped 29, the skip count now observed in real
-time rather than reconstructed. (That is coordinator dedup under live load; the agent emitting its
-own in-loop segments remains the open loop-surface point below.) The 26-symbol shared core is the
+*run end-to-end live*: three agents doing the fix task with a segment sink wired into their loop
+emitted 118 segments over 153 turns, and the coordinator — running a real model — executed 83
+continuations and skipped 35, the collision observed to climb from 0 percent in the opening turns
+to 30 percent by the end as the shared component re-engaged. The 26-symbol shared core is the
 *sub-segment* shape the shapes section names: the same component re-appearing inside flows that
 otherwise differ. Priced at the fresh
 per-continuation cost — the only honest one, per the cost section — that is about 38,000 tokens
