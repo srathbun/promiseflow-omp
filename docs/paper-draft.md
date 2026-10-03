@@ -474,6 +474,25 @@ but "when a broad ask splits one piece of reasoning across many agents, how much
 section, and the rate at which real shared asks repeat the same piece is the one prevalence
 number still worth measuring.
 
+**Long-horizon sharing — measured once, on one subsystem.** Everything above is a single turn:
+an agent extracts a finding list once, under a frozen schema, and we ask whether two agents
+matched. That is the wrong regime for the claim the mechanism actually makes, which is that
+convergence accumulates over many turns as code-grounded agents re-engage the same component —
+the schema is grown, not written once, and only where a problem reaches for it. To see the
+horizon we ran three agents over a real code task: each implemented overlapping fixes in the
+SQLAlchemy SQL Server reflection subsystem (identity seed, precision, temporary-table collation,
+a reflection hang) across a genuine edit loop, with their engaged components recorded. Three
+agents, 103 turns, 52 distinct code symbols, and *half* — 26 — engaged by at least two agents;
+the shared core did not exist at once but *accumulated*, one symbol by the first turn and 25 by
+the thirtieth. Pushing those engagements through the coordinator and Marpa worker makes the
+convergence a real dedup rather than a set similarity: 81 engagements collapse to 52 distinct
+keys, a 36% collision, with 29 cache hits where a later agent reused an earlier agent's finished
+segment. At this paper's continuation cost that is roughly 38,000 fresh tokens saved — about
+484,000 with the cached prefix counted — for three agents on one subsystem. One subsystem and
+three agents is not a swarm rate; but it is the first measurement that runs the whole line from
+repeated reasoning to a token count, and it shows the benefit living exactly where the earlier
+static probes could not see it: in the length of the task, not the tightness of a one-shot schema.
+
 ## WHAT WE HAVE NOT DONE
 
 Four limits are worth naming, because a mechanism proven once is not yet a claim that a
@@ -500,8 +519,9 @@ prediction of the dedup fraction *before* the swarm is paid to run. Three candid
 would stress the model three ways: a parallel sweep of a real issue list (SQLAlchemy), a shared
 generative task whose segments are prose that must stay consistent (a choose-your-own-adventure
 tree), and a repeat-heavy harness where agents re-run the same UI interactions. Each is
-specified in the companion measurement plan; the point here is that the missing number has
-stopped being a blind spot and become a routine measurement the system can take on itself.
+specified in the companion measurement plan. And one number now exists in place: the
+long-horizon run reported above — three agents, one subsystem, 103 turns — is a 36% segment-key
+collision with half its engaged symbols shared. A point, not yet a curve.
 
 The second is the *cross-process* boundary. Every result here is in-flight within one process;
 the distributed form (a Redis-backed coordinator, already ported) has not been exercised, and
