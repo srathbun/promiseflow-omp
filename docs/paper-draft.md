@@ -28,7 +28,9 @@ pieces* — the same context built, the same file read, the same decision reache
 again. Where work is genuinely shared, the mechanism pays; where it is not, there is nothing
 to pay for. In short: the problem is repeated reasoning; the cost is repeated model calls; the
 remedy is a name for reasoning, built by a parser; and the saving, today, is on shared
-side-work, not on the agent's own call.
+side-work, not on the agent's own call. For the right problem space — long-horizon tasks whose
+agents re-derive a shared core — this lets subagents execute shared reasoning once and reuse
+it, avoiding roughly 30% of the shareable token cost.
 
 One thing separates this from the "just hash your work" advice that has always been obvious in
 principle and never worth doing in practice: naming the repeatable unit is real labor.
